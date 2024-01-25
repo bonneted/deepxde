@@ -236,8 +236,10 @@ class PDEOperatorCartesianProd(Data):
 
         losses = []
         for i in range(num_func):
-            out = outputs[i][:, None]
-
+            out = outputs[i]
+            # Single output
+            if bkd.ndim(out) == 1:
+                out = out[:, None]
             f = []
             if self.pde.pde is not None:
                 f = self.pde.pde(inputs[1], out, model.net.auxiliary_vars[i][:, None])
@@ -262,7 +264,8 @@ class PDEOperatorCartesianProd(Data):
             losses.append(losses_i)
 
         losses = zip(*losses)
-        losses = [bkd.reduce_mean(bkd.as_tensor(l)) for l in losses]
+        # Use stack instead of as_tensor to keep the gradients.
+        losses = [bkd.reduce_mean(bkd.stack(loss, 0)) for loss in losses]
         return losses
 
     def losses_train(self, targets, outputs, loss_fn, inputs, model, aux=None):
