@@ -63,6 +63,7 @@ class PFNN(NN):
 
     def __init__(self, layer_sizes, activation, kernel_initializer):
         super().__init__()
+        self.frozen_subnetworks_idx = []
         self.activation = activations.get(activation)
         initializer = initializers.get(kernel_initializer)
         initializer_zero = initializers.get("zeros")
@@ -150,3 +151,13 @@ class PFNN(NN):
         if self._output_transform is not None:
             x = self._output_transform(inputs, x)
         return x
+
+    def freeze_subnetworks(self, subnetwork_idx):
+        """Freeze the parameters of the subnetworks with indices `subnetwork_idxs`."""
+        self.frozen_subnetworks_idx = subnetwork_idx
+        self.requires_grad_(True)
+        for layers in self.layers:
+            if isinstance(layers, torch.nn.ModuleList):
+                for idx in subnetwork_idx:
+                    for param in layers[idx].parameters():
+                        param.requires_grad = False

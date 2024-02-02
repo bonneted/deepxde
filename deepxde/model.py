@@ -545,6 +545,8 @@ class Model:
             self.net.requires_grad_(requires_grad=False)
             outs = outputs_losses(inputs, targets, auxiliary_vars)
             self.net.requires_grad_()
+            if type(self.net).__name__ == "PFNN" and len(self.net.frozen_subnetworks_idx) > 0:
+                self.net.freeze_subnetworks(self.net.frozen_subnetworks_idx)
         elif backend_name == "jax":
             # TODO: auxiliary_vars
             outs = outputs_losses(self.params, inputs, targets)
