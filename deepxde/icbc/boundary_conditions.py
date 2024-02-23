@@ -267,6 +267,10 @@ class PointSetOperatorBC:
 class IntegralBC(BC):
 
     def __init__(self, points, func, values,num_time,num_points):
+        if backend_name not in ["pytorch", "tensorlfow"]:
+            raise RuntimeError(
+                "IntegralBC only implemented for pytorch and tensorflow backend"
+            )
         self.points = np.array(points, dtype=config.real(np))
         """
         if not isinstance(values, numbers.Number) and values.shape[1] != 1:
@@ -280,6 +284,13 @@ class IntegralBC(BC):
         self.func = func
         self.num_time = num_time
         self.num_points = num_points
+        if backend_name == "pytorch":
+            self.abs = bkd.abs
+            self.reduce_mean = bkd.mean
+        else:
+            self.abs = bkd.math.abs
+            self.reduce_mean = bkd.math.reduce_mean
+        
 
     def collocation_points(self, X):
         return self.points
@@ -293,7 +304,7 @@ class IntegralBC(BC):
         for i in range(self.num_time):
             start_index = self.num_points * i
             end_index   = self.num_points * (i + 1)
-            sol = sol + bkd.math.abs( bkd.math.reduce_mean(sol_raw[start_index:end_index]) )
+            sol = sol + self.abs( self.reduce_mean(sol_raw[start_index:end_index]) )
         sol = sol/self.num_time
         return sol
     
