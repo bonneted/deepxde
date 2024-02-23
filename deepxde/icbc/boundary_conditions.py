@@ -286,7 +286,7 @@ class IntegralBC(BC):
         self.num_points = num_points
         if backend_name == "pytorch":
             self.abs = bkd.abs
-            self.reduce_mean = bkd.mean
+            self.reduce_mean = lambda x: bkd.mean(x, dim=-1)
         else:
             self.abs = bkd.math.abs
             self.reduce_mean = bkd.math.reduce_mean
