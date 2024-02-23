@@ -9,6 +9,7 @@ __all__ = [
     "PointSetBC",
     "PointSetOperatorBC",
     "RobinBC",
+    "IntegralBC"
 ]
 
 import numbers
@@ -263,6 +264,39 @@ class PointSetOperatorBC:
         return self.func(inputs, outputs, X)[beg:end] - self.values
 
 
+class IntegralBC(BC):
+
+    def __init__(self, points, func, values,num_time,num_points):
+        self.points = np.array(points, dtype=config.real(np))
+        """
+        if not isinstance(values, numbers.Number) and values.shape[1] != 1:
+            raise RuntimeError(
+                "PointSetBC should output 1D values. Use argument 'component' for different components."
+            )
+        """
+        #self.values = bkd.as_tensor(values, dtype=config.real(bkd.lib))
+        #self.component = component
+        self.values = bkd.as_tensor(values, dtype=config.real(bkd.lib))
+        self.func = func
+        self.num_time = num_time
+        self.num_points = num_points
+
+    def collocation_points(self, X):
+        return self.points
+
+    def error(self, X, inputs, outputs, beg, end):
+        # Estimated stress - Experimental measured stress
+        sol_raw = self.func(inputs, outputs, X)[beg:end] - self.values
+        #
+        sol = 0
+        # the mean absolute error over the given time steps.
+        for i in range(self.num_time):
+            start_index = self.num_points * i
+            end_index   = self.num_points * (i + 1)
+            sol = sol + bkd.math.abs( bkd.math.reduce_mean(sol_raw[start_index:end_index]) )
+        sol = sol/self.num_time
+        return sol
+    
 def npfunc_range_autocache(func):
     """Call a NumPy function on a range of the input ndarray.
 
