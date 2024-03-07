@@ -185,8 +185,8 @@ class SPINN(NN):
         #         outputs += [H]
         for i in range(self.out_dim):
             # pred += [jnp.einsum('fx, fy->fxy', outputs[0][self.r*i:self.r*(i+1)], outputs[1][self.r*i:self.r*(i+1)])]
-            pred += [jnp.dot(outputs[0][self.r*i:self.r*(i+1)].T, outputs[-1][self.r*i:self.r*(i+1)]).ravel()]
-            # pred += [jnp.sum(outputs[0][self.r*i:self.r*(i+1)] * outputs[1][self.r*i:self.r*(i+1)], axis=0)]
+            # pred += [jnp.dot(outputs[0][self.r*i:self.r*(i+1)].T, outputs[-1][self.r*i:self.r*(i+1)]).ravel()]
+            pred += [jnp.sum(outputs[0][self.r*i:self.r*(i+1)] * outputs[1][self.r*i:self.r*(i+1)], axis=0)]
         return jnp.squeeze(jnp.stack(pred, axis=1))
     
 

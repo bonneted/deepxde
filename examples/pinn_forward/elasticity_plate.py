@@ -11,22 +11,13 @@ lmbd = 1.0
 mu = 0.5
 Q = 4.0
 
-# Define function
-if dde.backend.backend_name == "pytorch":
-    import torch
+sin = dde.backend.sin
+cos = dde.backend.cos
+stack = dde.backend.stack
+pi = dde.backend.as_tensor(np.pi)
 
-    sin = torch.sin
-    cos = torch.cos
-elif dde.backend.backend_name == "paddle":
-    import paddle
-
-    sin = paddle.sin
-    cos = paddle.cos
-elif dde.backend.backend_name == "jax":
+if dde.backend.backend_name == "jax":
     import jax.numpy as jnp
-
-    sin = jnp.sin
-    cos = jnp.cos
 
 geom = dde.geometry.Rectangle([0, 0], [1, 1])
 
@@ -49,10 +40,8 @@ def boundary_bottom(x, on_boundary):
 
 # Exact solutions
 def func(x):
-    x_mesh = [xi.T.ravel() for xi in jnp.meshgrid(x[:,0],x[:,1], indexing='ij')]
-    # x_mesh = jnp.meshgrid(x[:,0].ravel(), x[:,0].ravel(), indexing='ij')
-
-    x = jnp.squeeze(jnp.stack(x_mesh, axis=1))
+    # x_mesh = [xi.ravel() for xi in jnp.meshgrid(x[:,0],x[:,1], indexing='ij')]
+    # x = jnp.squeeze(stack(x_mesh, axis=1))
 
     ux = np.cos(2 * np.pi * x[:, 0:1]) * np.sin(np.pi * x[:, 1:2])
     uy = np.sin(np.pi * x[:, 0:1]) * Q * x[:, 1:2] ** 4 / 4
@@ -85,6 +74,17 @@ syy_top_bc = dde.icbc.DirichletBC(
     component=3,
 )
 
+def HardBC(x,f):
+    # x_mesh = [xi.ravel() for xi in jnp.meshgrid(x[:,0],x[:,1], indexing='ij')]
+    # x = jnp.squeeze(stack(x_mesh, axis=1))
+
+    Ux = f[:,0]*x[:,1]*(1-x[:,1])
+    Uy = f[:,1]*x[:,0]*(1-x[:,0])*x[:,1]
+
+    Sxx = f[:,2]*x[:,0]*(1-x[:,0])
+    Syy = f[:,3]*(1-x[:,1]) + (lmbd + 2*mu)*Q*-sin(pi*x[:,0])
+    Sxy = f[:,4] 
+    return stack((Ux,Uy,Sxx,Syy,Sxy),axis=1)
 
 def fx(x):
     return (
@@ -125,8 +125,8 @@ def jacobian(f, x, i, j):
 
 def pde(x, f):
     # x_mesh = jnp.meshgrid(x[:,0].ravel(), x[:,0].ravel(), indexing='ij')
-    x_mesh = [xi.ravel() for xi in jnp.meshgrid(x[:,0],x[:,1], indexing='ij')]
-    x = jnp.squeeze(jnp.stack(x_mesh, axis=1))
+    # x_mesh = [xi.ravel() for xi in jnp.meshgrid(x[:,0],x[:,1], indexing='ij')]
+    # x = jnp.squeeze(stack(x_mesh, axis=1))
 
     E_xx = jacobian(f, x, i=0, j=0)
     E_yy = jacobian(f, x, i=1, j=1)
@@ -153,29 +153,25 @@ def pde(x, f):
 
     return [momentum_x, momentum_y, stress_x, stress_y, stress_xy]
 
+bc_type = "soft"
+if bc_type == "hard":
+    bcs = []
+else:
+    bcs = [ux_top_bc, ux_bottom_bc, uy_left_bc, uy_bottom_bc, uy_right_bc, sxx_left_bc, sxx_right_bc, syy_top_bc]
+
 data = dde.data.PDE(
     geom,
     pde,
-    [
-        ux_top_bc,
-        ux_bottom_bc,
-        uy_left_bc,
-        uy_bottom_bc,
-        uy_right_bc,
-        sxx_left_bc,
-        sxx_right_bc,
-        syy_top_bc,
-    ],
-    num_domain=16,
-    num_boundary=8,
+    bcs,
+    num_domain=500,
+    num_boundary=500,
     solution=func,
-    num_test=8,
+    num_test=500,
 )
 
 SPINN = True
 activation = "tanh"
 initializer = "Glorot uniform"
-
 if SPINN:
     layers = [32, 32, 32, 10, 5]
     net = dde.nn.SPINN(layers, activation, initializer)
@@ -183,8 +179,11 @@ else:
     layers = [2, [40] * 5, [40] * 5, [40] * 5, [40] * 5, 5]
     net = dde.nn.PFNN(layers, activation, initializer)
 
+if bc_type == "hard":
+    net.apply_output_transform(HardBC)
+
 model = dde.Model(data, net)
 model.compile("adam", lr=0.001, metrics=["l2 relative error"])
-losshistory, train_state = model.train(iterations=5000, display_every=100)
+losshistory, train_state = model.train(iterations=5000)
 
 dde.saveplot(losshistory, train_state, issave=True, isplot=True)
