@@ -144,3 +144,79 @@ class PFNN(NN):
         if self._output_transform is not None:
             x = self._output_transform(inputs, x)
         return x
+    
+class SPINN(NN):
+    layer_sizes: Any
+    activation: Any
+    kernel_initializer: Any
+
+    params: Any = None
+    _input_transform: Callable = None
+    _output_transform: Callable = None
+
+    def setup(self):
+        self.r = self.layer_sizes[-2] #rank of the approximated tensor
+        self.out_dim = self.layer_sizes[-1] #output dimension
+
+    @nn.compact
+    def __call__(self, inputs, training=False):
+        inputs = jnp.reshape(inputs, (-1, 2))
+        kernel_initializer = initializers.get(self.kernel_initializer)
+        if self._input_transform is not None:
+            inputs = self._input_transform(inputs)
+        inputs, outputs, pred = [jnp.expand_dims(inputs[:,0],axis=1), jnp.expand_dims(inputs[:,1],axis=1)], [], []
+        # if self.mlp == 'mlp':
+        for X in inputs:
+            for fs in self.layer_sizes[:-2]:
+                X = nn.Dense(fs, kernel_init=kernel_initializer)(X)
+                X = nn.activation.tanh(X)
+            X = nn.Dense(self.r*self.out_dim, kernel_init=kernel_initializer)(X)
+            outputs += [jnp.transpose(X, (1, 0))]
+        # else:
+        #     for X in inputs:
+        #         U = nn.activation.tanh(nn.Dense(self.features[0], kernel_init=init)(X))
+        #         V = nn.activation.tanh(nn.Dense(self.features[0], kernel_init=init)(X))
+        #         H = nn.activation.tanh(nn.Dense(self.features[0], kernel_init=init)(X))
+        #         for fs in self.features[:-1]:
+        #             Z = nn.Dense(fs, kernel_init=init)(H)
+        #             Z = nn.activation.tanh(Z)
+        #             H = (jnp.ones_like(Z)-Z)*U + Z*V
+        #         H = nn.Dense(self.r, kernel_init=init)(H)
+        #         outputs += [H]
+        for i in range(self.out_dim):
+            # pred += [jnp.einsum('fx, fy->fxy', outputs[0][self.r*i:self.r*(i+1)], outputs[1][self.r*i:self.r*(i+1)])]
+            pred += [jnp.dot(outputs[0][self.r*i:self.r*(i+1)].T, outputs[-1][self.r*i:self.r*(i+1)]).ravel()]
+            # pred += [jnp.sum(outputs[0][self.r*i:self.r*(i+1)] * outputs[1][self.r*i:self.r*(i+1)], axis=0)]
+        return jnp.squeeze(jnp.stack(pred, axis=1))
+    
+
+# class SPINN(NN):
+#     layer_sizes: Any
+#     activation: Any
+#     kernel_initializer: Any
+
+#     params: Any = None
+#     _input_transform: Callable = None
+#     _output_transform: Callable = None
+
+#     def setup(self):
+#         kernel_initializer = initializers.get(self.kernel_initializer)
+#         self.layers = [
+#             nn.Dense(fs, kernel_init=kernel_initializer) for fs in self.layer_sizes[:-1]
+#         ]
+#         self.output_layer = nn.Dense(self.layer_sizes[-1], kernel_init=kernel_initializer)
+
+#     @nn.compact
+#     def __call__(self, inputs, training=False):
+#         inputs = jnp.reshape(inputs, (-1, 2))
+#         if self._input_transform is not None:
+#             inputs = self._input_transform(inputs)
+#         inputs, outputs = [inputs[:,0], inputs[:,1]], []
+#         for X in inputs:
+#             for layer in self.layers:
+#                 X = layer(X)
+#                 X = nn.activation.tanh(X)
+#             X = self.output_layer(X)
+#             outputs += [X]
+
+#         return jnp.dot(outputs[0], outputs[-1].T)

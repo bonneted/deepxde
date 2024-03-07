@@ -49,6 +49,11 @@ def boundary_bottom(x, on_boundary):
 
 # Exact solutions
 def func(x):
+    x_mesh = [xi.T.ravel() for xi in jnp.meshgrid(x[:,0],x[:,1], indexing='ij')]
+    # x_mesh = jnp.meshgrid(x[:,0].ravel(), x[:,0].ravel(), indexing='ij')
+
+    x = jnp.squeeze(jnp.stack(x_mesh, axis=1))
+
     ux = np.cos(2 * np.pi * x[:, 0:1]) * np.sin(np.pi * x[:, 1:2])
     uy = np.sin(np.pi * x[:, 0:1]) * Q * x[:, 1:2] ** 4 / 4
 
@@ -119,6 +124,10 @@ def jacobian(f, x, i, j):
         return dde.grad.jacobian(f, x, i=i, j=j)
 
 def pde(x, f):
+    # x_mesh = jnp.meshgrid(x[:,0].ravel(), x[:,0].ravel(), indexing='ij')
+    x_mesh = [xi.ravel() for xi in jnp.meshgrid(x[:,0],x[:,1], indexing='ij')]
+    x = jnp.squeeze(jnp.stack(x_mesh, axis=1))
+
     E_xx = jacobian(f, x, i=0, j=0)
     E_yy = jacobian(f, x, i=1, j=1)
     E_xy = 0.5 * (jacobian(f, x, i=0, j=1) + jacobian(f, x, i=1, j=0))
@@ -157,19 +166,25 @@ data = dde.data.PDE(
         sxx_right_bc,
         syy_top_bc,
     ],
-    num_domain=500,
-    num_boundary=500,
+    num_domain=16,
+    num_boundary=8,
     solution=func,
-    num_test=100,
+    num_test=8,
 )
 
-layers = [2, [40] * 5, [40] * 5, [40] * 5, [40] * 5, 5]
+SPINN = True
 activation = "tanh"
 initializer = "Glorot uniform"
-net = dde.nn.PFNN(layers, activation, initializer)
+
+if SPINN:
+    layers = [32, 32, 32, 10, 5]
+    net = dde.nn.SPINN(layers, activation, initializer)
+else:
+    layers = [2, [40] * 5, [40] * 5, [40] * 5, [40] * 5, 5]
+    net = dde.nn.PFNN(layers, activation, initializer)
 
 model = dde.Model(data, net)
 model.compile("adam", lr=0.001, metrics=["l2 relative error"])
-losshistory, train_state = model.train(iterations=5000)
+losshistory, train_state = model.train(iterations=5000, display_every=100)
 
 dde.saveplot(losshistory, train_state, issave=True, isplot=True)
