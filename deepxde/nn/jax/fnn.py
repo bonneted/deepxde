@@ -100,12 +100,11 @@ class PFNN(NN):
             )
 
         denses = [
-            make_dense(unit)
-            if isinstance(unit, int)
-            else [
-                make_dense(unit[j])
-                for j in range(n_output)
-            ]
+            (
+                make_dense(unit)
+                if isinstance(unit, int)
+                else [make_dense(unit[j]) for j in range(n_output)]
+            )
             for unit in self.layer_sizes[1:-1]
         ]
 
@@ -114,7 +113,7 @@ class PFNN(NN):
         else:
             denses.append(make_dense(n_output))
 
-        self.denses = denses #can't assign directly to self.denses because linen list attributes are converted to tuple, see https://github.com/google/flax/issues/524
+        self.denses = denses  # can't assign directly to self.denses because linen list attributes are converted to tuple, see https://github.com/google/flax/issues/524
 
     def __call__(self, inputs, training=False):
         x = inputs
@@ -135,9 +134,11 @@ class PFNN(NN):
         # output layers
         if isinstance(x, list):
             if x[0].ndim == 1:
-                x = jnp.concatenate([f(x_) for f, x_ in zip(self.denses[-1], x)], axis=0)
+                x = jnp.stack([f(x_) for f, x_ in zip(self.denses[-1], x)], axis=1)
             else:
-                x = jnp.concatenate([f(x_) for f, x_ in zip(self.denses[-1], x)], axis=1)
+                x = jnp.stack(
+                    [f(x_).squeeze() for f, x_ in zip(self.denses[-1], x)], axis=1
+                )
         else:
             x = self.denses[-1](x)
 
@@ -155,23 +156,26 @@ class SPINN(NN):
     _output_transform: Callable = None
 
     def setup(self):
-        self.r = self.layer_sizes[-2] #rank of the approximated tensor
-        self.out_dim = self.layer_sizes[-1] #output dimension
+        self.r = self.layer_sizes[-2]  # rank of the approximated tensor
+        self.out_dim = self.layer_sizes[-1]  # output dimension
 
     @nn.compact
     def __call__(self, inputs, training=False):
-        inputs = jnp.reshape(inputs, (-1, 2))
+        if inputs[1].ndim == 0: # jax compute grad pointwise (n_dim,), so we need to reshape to (1, n_dim)
+            inputs = inputs.reshape(-1, 2) 
+        x = inputs 
+
         kernel_initializer = initializers.get(self.kernel_initializer)
         if self._input_transform is not None:
-            inputs = self._input_transform(inputs)
-        inputs, outputs, pred = [jnp.expand_dims(inputs[:,0],axis=1), jnp.expand_dims(inputs[:,1],axis=1)], [], []
+            x = self._input_transform(x)
+        x, outputs, pred = [x[:, 0:1], x[:, 1:2]], [], []
         # if self.mlp == 'mlp':
-        for X in inputs:
+        for x_ in x:
             for fs in self.layer_sizes[:-2]:
-                X = nn.Dense(fs, kernel_init=kernel_initializer)(X)
-                X = nn.activation.tanh(X)
-            X = nn.Dense(self.r*self.out_dim, kernel_init=kernel_initializer)(X)
-            outputs += [jnp.transpose(X, (1, 0))]
+                x_ = nn.Dense(fs, kernel_init=kernel_initializer)(x_)
+                x_ = nn.activation.tanh(x_)
+            x_ = nn.Dense(self.r * self.out_dim, kernel_init=kernel_initializer)(x_)
+            outputs += [x_]
         # else:
         #     for X in inputs:
         #         U = nn.activation.tanh(nn.Dense(self.features[0], kernel_init=init)(X))
@@ -185,38 +189,14 @@ class SPINN(NN):
         #         outputs += [H]
         for i in range(self.out_dim):
             # pred += [jnp.einsum('fx, fy->fxy', outputs[0][self.r*i:self.r*(i+1)], outputs[1][self.r*i:self.r*(i+1)])]
-            # pred += [jnp.dot(outputs[0][self.r*i:self.r*(i+1)].T, outputs[-1][self.r*i:self.r*(i+1)]).ravel()]
-            pred += [jnp.sum(outputs[0][self.r*i:self.r*(i+1)] * outputs[1][self.r*i:self.r*(i+1)], axis=0)]
-        return jnp.squeeze(jnp.stack(pred, axis=1))
-    
-
-# class SPINN(NN):
-#     layer_sizes: Any
-#     activation: Any
-#     kernel_initializer: Any
-
-#     params: Any = None
-#     _input_transform: Callable = None
-#     _output_transform: Callable = None
-
-#     def setup(self):
-#         kernel_initializer = initializers.get(self.kernel_initializer)
-#         self.layers = [
-#             nn.Dense(fs, kernel_init=kernel_initializer) for fs in self.layer_sizes[:-1]
-#         ]
-#         self.output_layer = nn.Dense(self.layer_sizes[-1], kernel_init=kernel_initializer)
-
-#     @nn.compact
-#     def __call__(self, inputs, training=False):
-#         inputs = jnp.reshape(inputs, (-1, 2))
-#         if self._input_transform is not None:
-#             inputs = self._input_transform(inputs)
-#         inputs, outputs = [inputs[:,0], inputs[:,1]], []
-#         for X in inputs:
-#             for layer in self.layers:
-#                 X = layer(X)
-#                 X = nn.activation.tanh(X)
-#             X = self.output_layer(X)
-#             outputs += [X]
-
-#         return jnp.dot(outputs[0], outputs[-1].T)
+            pred += [
+                jnp.dot(
+                    outputs[0][:, self.r * i : self.r * (i + 1)],
+                    outputs[-1][:, self.r * i : self.r * (i + 1)].T,
+                ).ravel()
+            ]
+            # pred += [jnp.sum(outputs[0][:,self.r*i:self.r*(i+1)] * outputs[1][:,self.r*i:self.r*(i+1)], axis=-1)]
+        pred = jnp.stack(pred, axis=1)
+        if self._output_transform is not None:
+                pred = self._output_transform(inputs, pred)
+        return pred.squeeze() # JAX compute grad pointwise (n_dim,), so we need to squeeze it back to (n_dim,)
