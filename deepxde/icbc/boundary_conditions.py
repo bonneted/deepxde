@@ -267,10 +267,10 @@ class PointSetOperatorBC:
 class IntegralBC(BC):
 
     def __init__(self, points, func, values,num_time,num_points):
-        if backend_name not in ["pytorch", "tensorlfow"]:
-            raise RuntimeError(
-                "IntegralBC only implemented for pytorch and tensorflow backend"
-            )
+        # if backend_name not in ["pytorch", "tensorflow","paddle"]:
+        #     raise RuntimeError(
+        #         "IntegralBC only implemented for pytorch, tensorflow and paddle backend"
+        #     )
         self.points = np.array(points, dtype=config.real(np))
         """
         if not isinstance(values, numbers.Number) and values.shape[1] != 1:
@@ -284,13 +284,19 @@ class IntegralBC(BC):
         self.func = func
         self.num_time = num_time
         self.num_points = num_points
-        if backend_name == "pytorch":
-            self.abs = bkd.abs
-            self.reduce_mean = lambda x: bkd.mean(x, dim=-1)
-        else:
-            self.abs = bkd.math.abs
-            self.reduce_mean = bkd.math.reduce_mean
-        
+        # if backend_name == "pytorch":
+        #     self.abs = bkd.abs
+        #     self.reduce_mean = lambda x: bkd.mean(x, dim=-1)
+        # elif backend_name == "tensorflow":
+        #     self.abs = bkd.abs
+        #     self.reduce_mean = bkd.reduce_mean
+        # elif backend_name == "paddle":
+        #     self.abs = bkd.abs
+        #     self.reduce_mean = lambda x: bkd.mean(x, dim=-1)
+        # elif backend_name == "jax":
+        #     from backend.jax import jnp
+        #     self.abs = jnp.abs
+        #     self.reduce_mean = lambda x: jnp.mean(x, axis=-1)
 
     def collocation_points(self, X):
         return self.points
@@ -304,7 +310,7 @@ class IntegralBC(BC):
         for i in range(self.num_time):
             start_index = self.num_points * i
             end_index   = self.num_points * (i + 1)
-            sol = sol + self.abs( self.reduce_mean(sol_raw[start_index:end_index]) )
+            sol = sol + bkd.abs( bkd.reduce_mean(sol_raw[start_index:end_index]) )
         sol = sol/self.num_time
         return sol
     
