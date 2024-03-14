@@ -218,7 +218,7 @@ class PointSetBC:
                 )
             return outputs[beg:end, self.component] - self.values[self.batch_indices]
         if isinstance(self.component, numbers.Number):
-            return outputs[beg:end, self.component : self.component + 1] - self.values
+            return outputs[beg*(end-beg):end*(end-beg), self.component : self.component + 1] - self.values
         # When a concat is provided, the following code works 'fast' in paddle cpu,
         # and slow in both tensorflow backends, jax untested.
         # tf.gather can be used instead of for loop but is also slow
