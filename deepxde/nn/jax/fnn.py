@@ -181,5 +181,5 @@ class PFNN(NN):
                     inputs.reshape(1, -1), x.reshape(1, -1)
                 ).squeeze()
             else:
-                x = self._output_transform(inputs, x).squeeze()
+                x = self._output_transform(inputs, x)
         return x
