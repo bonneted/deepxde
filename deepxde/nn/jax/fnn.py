@@ -157,7 +157,7 @@ class PFNN(NN):
             else:
                 x = self._input_transform(x)
 
-        for layer in self.denses:
+        for layer in self.denses[:-1]:
             if isinstance(layer, (list, tuple)):
                 if isinstance(x, list):
                     x = [self._activation(dense(x_)) for dense, x_ in zip(layer, x)]
@@ -168,12 +168,11 @@ class PFNN(NN):
             else:
                 x = self._activation(layer(x))
 
-        # concatenate subnetwork outputs
-        if isinstance(x, (list, tuple)):
-            if x[0].ndim == 1:
-                x = jnp.concatenate(x, axis=0)
-            else:
-                x = jnp.concatenate(x, axis=1)
+        # output layers
+        if x[0].ndim == 1:
+            x = jnp.concatenate([f(x_) for f, x_ in zip(self.denses[-1], x)], axis=0)
+        else:
+            x = jnp.concatenate([f(x_) for f, x_ in zip(self.denses[-1], x)], axis=1)
 
         if self._output_transform is not None:
             if x.ndim == 1:
