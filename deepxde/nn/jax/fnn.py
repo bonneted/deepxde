@@ -182,6 +182,8 @@ class PFNN(NN):
             else:
                 x = self._output_transform(inputs, x).squeeze()
         return x
+
+
 class SPINN(NN):
     layer_sizes: Any
     activation: Any
@@ -197,9 +199,11 @@ class SPINN(NN):
 
     @nn.compact
     def __call__(self, inputs, training=False):
-        if inputs.ndim == 1: # jax compute grad pointwise (n_dim,), so we need to reshape to (1, n_dim)
-            inputs = inputs.reshape(1, -1) 
-        x = inputs 
+        if (
+            inputs.ndim == 1
+        ):  # jax compute grad pointwise (n_dim,), so we need to reshape to (1, n_dim)
+            inputs = inputs.reshape(1, -1)
+        x = inputs
 
         kernel_initializer = initializers.get(self.kernel_initializer)
         if self._input_transform is not None:
@@ -234,5 +238,7 @@ class SPINN(NN):
             # pred += [jnp.sum(outputs[0][:,self.r*i:self.r*(i+1)] * outputs[1][:,self.r*i:self.r*(i+1)], axis=-1)]
         pred = jnp.stack(pred, axis=1)
         if self._output_transform is not None:
-                pred = self._output_transform(inputs, pred)
-        return pred.squeeze() # JAX compute grad pointwise (n_dim,), so we need to squeeze it back to (n_dim,)
+            pred = self._output_transform(inputs, pred)
+        return (
+            pred.squeeze()
+        )  # JAX compute grad pointwise (n_dim,), so we need to squeeze it back to (n_dim,)

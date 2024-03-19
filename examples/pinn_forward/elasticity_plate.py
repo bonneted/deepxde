@@ -167,17 +167,20 @@ def pde(x, f):
 bc_type = "hard"
 if bc_type == "hard":
     bcs = []
+    num_boundary = 0
 else:
     bcs = [ux_top_bc, ux_bottom_bc, uy_left_bc, uy_bottom_bc, uy_right_bc, sxx_left_bc, sxx_right_bc, syy_top_bc]
+    num_boundary = 500
 
 data = dde.data.PDE(
     geom,
     pde,
     bcs,
-    num_domain=32,
-    num_boundary=0,
+    num_domain=500,
+    num_boundary=num_boundary,
     solution=func,
-    num_test=32,
+    num_test=500,
+    is_SPINN=SPINN,
 )
 
 activation = "tanh"
