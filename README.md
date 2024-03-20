@@ -54,6 +54,7 @@ DeepXDE has implemented many algorithms as shown above and supports many feature
 - enables the user code to be compact, resembling closely the mathematical formulation.
 - **complex domain geometries** without tyranny mesh generation. The primitive geometries are interval, triangle, rectangle, polygon, disk, ellipse, star-shaped, cuboid, sphere, hypercube, and hypersphere. Other geometries can be constructed as constructive solid geometry (CSG) using three boolean operations: union, difference, and intersection. DeepXDE also supports a geometry represented by a point cloud.
 - 5 types of **boundary conditions** (BCs): Dirichlet, Neumann, Robin, periodic, and a general BC, which can be defined on an arbitrary domain or on a point set; and approximate distance functions for **hard constraints**.
+- 3 **automatic differentiation** (AD) methods to compute derivatives: reverse mode (i.e., backpropagation), forward mode, and zero coordinate shift (ZCS).
 - different **neural networks**: fully connected neural network (FNN), stacked FNN, residual neural network, (spatio-temporal) multi-scale Fourier feature networks, etc.
 - many **sampling methods**: uniform, pseudorandom, Latin hypercube sampling, Halton sequence, Hammersley sequence, and Sobol sequence. The training points can keep the same during training or be resampled (adaptively) every certain iterations.
 - 4 **function spaces**: power series, Chebyshev polynomial, Gaussian random field (1D/2D).
@@ -75,25 +76,25 @@ DeepXDE requires one of the following backend-specific dependencies to be instal
 - TensorFlow 2.x: [TensorFlow](https://www.tensorflow.org)>=2.2.0, [TensorFlow Probability](https://www.tensorflow.org/probability)>=0.10.0
 - PyTorch: [PyTorch](https://pytorch.org)>=1.9.0
 - JAX: [JAX](https://jax.readthedocs.io), [Flax](https://flax.readthedocs.io), [Optax](https://optax.readthedocs.io)
-- PaddlePaddle: [PaddlePaddle](https://www.paddlepaddle.org.cn/en) ([develop version](https://www.paddlepaddle.org.cn/en/install/quick?docurl=/documentation/docs/en/develop/install/pip/linux-pip_en.html))
+- PaddlePaddle: [PaddlePaddle](https://www.paddlepaddle.org.cn/en)>=2.6.0
 
 Then, you can install DeepXDE itself.
 
 - Install the stable version with `pip`:
 
-```
+``` sh
 $ pip install deepxde
 ```
 
 - Install the stable version with `conda`:
 
-```
+``` sh
 $ conda install -c conda-forge deepxde
 ```
 
 - For developers, you should clone the folder to your local machine and put it along with your project scripts.
 
-```
+``` sh
 $ git clone https://github.com/lululxvi/deepxde.git
 ```
 
