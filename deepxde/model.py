@@ -374,7 +374,8 @@ class Model:
         # Initialize the network's parameters
         if self.params is None:
             key = jax.random.PRNGKey(config.jax_random_seed)
-            self.net.params = self.net.init(key, self.data.test()[0])
+            X_test = self.data.test()[0][-1] if isinstance(self.data.test()[0], (list, tuple)) else self.data.test()[0]
+            self.net.params = self.net.init(key, X_test)
             self.params = [self.net.params, self.external_trainable_variables]
         # TODO: learning rate decay
         self.opt = optimizers.get(self.opt_name, learning_rate=lr)
@@ -382,6 +383,11 @@ class Model:
 
         @jax.jit
         def outputs(params, training, inputs):
+            if isinstance(inputs, (list, tuple)):
+                return jax.numpy.concatenate(
+                    [self.net.apply(params, x, training=training) for x in inputs],
+                    axis=0,
+                )
             return self.net.apply(params, inputs, training=training)
 
         def outputs_losses(params, training, inputs, targets, losses_fn):
@@ -389,9 +395,9 @@ class Model:
 
             # TODO: Add auxiliary vars
             def outputs_fn(inputs):
-                return self.net.apply(nn_params, inputs, training=training)
+                return outputs(nn_params, training, inputs)
 
-            outputs_ = self.net.apply(nn_params, inputs, training=training)
+            outputs_ = outputs(nn_params, training, inputs)
             # Data losses
             # We use aux so that self.data.losses is a pure function.
             aux = [outputs_fn, ext_params] if ext_params else [outputs_fn]
