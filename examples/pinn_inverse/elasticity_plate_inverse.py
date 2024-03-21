@@ -10,11 +10,11 @@ import numpy as np
 import time
 import os
 
-n_iter = 10000
-log_every = 25*2
+n_iter = 100
+log_every = 25
 available_time = False# 2*5 #minutes
 log_output_fields = {}#{0: "Ux", 1: "Uy", 2: "Sxx", 3: "Syy", 4: "Sxy"}
-net_type = ["spinn", "pfnn"][0]
+net_type = ["spinn", "pfnn"][1]
 optimizers = ["adam", "LBFGS"][0]
 
 if net_type == "spinn":
@@ -25,11 +25,11 @@ mu = 0.5
 Q = 4.0
 
 # Trainable parameters
-# lmbd_trainable = dde.Variable(lmbd)# - 0.2)
-# mu_trainable = dde.Variable(mu)# - 0.2)
+lmbd_trainable = dde.Variable(lmbd)# - 0.2)
+mu_trainable = dde.Variable(mu)# - 0.2)
 
-lmbd_trainable = lmbd
-mu_trainable = mu
+# lmbd_trainable = lmbd
+# mu_trainable = mu
 
 
 sin = dde.backend.sin
@@ -161,7 +161,7 @@ n_DIC = 20
 # X_DIC = geom.uniform_points(1000, boundary=False)
 X_DIC_input = np.stack([np.linspace(0, 1, n_DIC)] * 2, axis=1)
 X_DIC_mesh = [x_.ravel() for x_ in np.meshgrid(X_DIC_input[:,0],X_DIC_input[:,1],indexing="ij")]
-X_DIC_plot = stack(X_DIC_mesh, axis=1)
+X_DIC_plot = np.stack(X_DIC_mesh, axis=1)
 if net_type != "spinn":
     X_DIC_input = X_DIC_plot
 U_DIC = func(X_DIC_input)
@@ -227,7 +227,7 @@ data = dde.data.PDE(
     num_boundary=num_boundary,
     solution=func,
     num_test=num_point,
-    is_SPINN=net_type == "spinn",
+    # is_SPINN=net_type == "spinn",
 )
 
 net.apply_output_transform(HardBC)
@@ -265,9 +265,12 @@ model = dde.Model(data, net)
 model.compile(optimizer, lr=0.001, metrics=["l2 relative error"], external_trainable_variables=trainable_variables)#, loss_weights=loss_weights)
 
 # start_time = time.time()
+print(f"lambda:{lmbd_trainable:.3f}|{lmbd:.2f}; mu: {mu_trainable:.3f}|{mu:.2f}")
 losshistory, train_state = model.train(
     iterations=n_iter, callbacks=callbacks, display_every=log_every
 )
+print(f"lambda:{lmbd_trainable:.3f}|{lmbd:.2f}; mu: {mu_trainable:.3f}|{mu:.2f}")
+
 # elapsed = time.time() - start_time
 
 
