@@ -402,7 +402,7 @@ class Model:
             # We use aux so that self.data.losses is a pure function.
             aux = [outputs_fn, ext_params] if ext_params else [outputs_fn]
             losses = losses_fn(targets, outputs_, loss_fn, inputs, self, aux=aux)
-            # TODO: Add regularization loss, weighted losses
+            # TODO: Add regularization loss
             if not isinstance(losses, list):
                 losses = [losses]
             losses = jax.numpy.asarray(losses)
@@ -667,6 +667,11 @@ class Model:
         for i in range(iterations):
             self.callbacks.on_epoch_begin()
             self.callbacks.on_batch_begin()
+            if backend_name == "jax" and any(
+                type(callback).__name__ == "VariableValue"
+                for callback in self.callbacks.callbacks
+            ):
+                self.callbacks.set_model(self)
 
             self.train_state.set_data_train(
                 *self.data.train_next_batch(self.batch_size)
