@@ -193,7 +193,7 @@ class PDE(Data):
         for i, bc in enumerate(self.bcs):
             if isinstance(inputs, (list, tuple)):
                 beg, end = bcs_start_output[i], bcs_start_output[i + 1]
-                error = bc.error(self.train_x, inputs[i], outputs[beg:end+1,:], 0, -1)
+                error = bc.error(self.train_x, inputs[i], outputs[beg:end,:], 0, 123456789012345678901234567890)
             else:
                 beg, end = bcs_start_output[i], bcs_start_output[i + 1]
                 # The same BC points are used for training and testing.
