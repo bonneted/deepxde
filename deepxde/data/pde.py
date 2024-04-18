@@ -4,7 +4,7 @@ from .data import Data
 from .. import backend as bkd
 from .. import config
 from ..backend import backend_name
-from ..utils import get_num_args, run_if_all_none, mpi_scatter_from_rank0
+from ..utils import get_num_args, run_if_all_none, mpi_scatter_from_rank0, list_handler
 
 
 class PDE(Data):
@@ -109,15 +109,14 @@ class PDE(Data):
         self.anchors = None if anchors is None else anchors.astype(config.real(np))
         self.exclusions = exclusions
 
-        if is_SPINN and solution is not None:
-            def solution_SPINN(inputs):
-                if isinstance(inputs, (list, tuple)):
-                    return bkd.concat([solution(x) for x in inputs], axis=0)
-                else:
-                    return solution(inputs)
-            self.soln = solution_SPINN
+        if solution is not None:
+            @list_handler
+            def solution_handling_list(inputs):
+                return solution(inputs)
+            self.soln = solution_handling_list
         else:
             self.soln = solution
+
         self.num_test = num_test
 
         self.auxiliary_var_fn = auxiliary_var_function
@@ -193,7 +192,7 @@ class PDE(Data):
         for i, bc in enumerate(self.bcs):
             if isinstance(inputs, (list, tuple)):
                 beg, end = bcs_start_output[i], bcs_start_output[i + 1]
-                error = bc.error(self.train_x, inputs[i], outputs[beg:end,:], 0, 123456789012345678901234567890)
+                error = bc.error(self.train_x, inputs[i], outputs[beg:end,:], 0, end-beg)
             else:
                 beg, end = bcs_start_output[i], bcs_start_output[i + 1]
                 # The same BC points are used for training and testing.

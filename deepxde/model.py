@@ -382,12 +382,8 @@ class Model:
         self.opt_state = self.opt.init(self.params)
 
         @jax.jit
+        @utils.list_handler
         def outputs(params, training, inputs):
-            if isinstance(inputs, (list, tuple)):
-                return jax.numpy.concatenate(
-                    [self.net.apply(params, x, training=training) for x in inputs],
-                    axis=0,
-                )
             return self.net.apply(params, inputs, training=training)
 
         def outputs_losses(params, training, inputs, targets, losses_fn):
