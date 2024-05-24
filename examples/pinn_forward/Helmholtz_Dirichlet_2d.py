@@ -89,5 +89,5 @@ else:
     )
 
 
-losshistory, train_state = model.train(iterations=iterations)
-dde.saveplot(losshistory, train_state, issave=True, isplot=True)
+# losshistory, train_state = model.train(iterations=iterations, model_save_path="model")
+# dde.saveplot(losshistory, train_state, issave=True, isplot=True)
