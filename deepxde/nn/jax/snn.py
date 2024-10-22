@@ -38,13 +38,15 @@ class SPINN(NN):
 
         if self._input_transform is not None:
             x = self._input_transform(x)
-
-        list_inputs = []
-        for i in range(self.in_dim):
-            if inputs.ndim == 1:
-                list_inputs.append(inputs[i:i+1])
-            else:
-                list_inputs.append(inputs[:, i:i+1])
+        if isinstance(inputs, (list, tuple)):
+            list_inputs = inputs
+        else:
+            list_inputs = []
+            for i in range(self.in_dim):
+                if inputs.ndim == 1:
+                    list_inputs.append(inputs[i:i+1])
+                else:
+                    list_inputs.append(inputs[:, i:i+1])
 
         if self.in_dim == 1:
             raise ValueError("Input dimension must be greater than 1")
@@ -108,7 +110,7 @@ class SPINN(NN):
         xy: intermediate tensor for feature merge btw. x and y axis
         pred: final model prediction (e.g. for 2d output, pred=[u, v])
         '''
-        [x, y, z] = inputs
+        [x, y, z] =  inputs
         if self.pos_enc != 0:
             # positional encoding only to spatial coordinates
             freq = jnp.expand_dims(jnp.arange(1, self.pos_enc+1, 1), 0)

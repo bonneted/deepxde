@@ -375,7 +375,7 @@ class Model:
         if self.params is None:
             key = jax.random.PRNGKey(config.jax_random_seed)
             X_test = (
-                self.data.test()[0][-1]
+                self.data.test()[0][0]
                 if isinstance(self.data.test()[0], (list, tuple))
                 else self.data.test()[0]
             )

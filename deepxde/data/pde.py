@@ -218,8 +218,8 @@ class PDE(Data):
         if config.parallel_scaling == "strong":
             self.train_x_all = mpi_scatter_from_rank0(self.train_x_all)
         if self.pde is not None:
-            if self.is_SPINN and len(self.train_x) > 0:
-                self.train_x = self.train_x + [self.train_x_all]
+            if self.is_SPINN:# and len(self.train_x) > 0:
+                self.train_x =  [self.train_x_all]
             else:
                 self.train_x = np.vstack((self.train_x, self.train_x_all))
         self.train_y = self.soln(self.train_x) if self.soln else None
@@ -234,7 +234,7 @@ class PDE(Data):
         if self.num_test is None:
             self.test_x = self.train_x
         else:
-            self.test_x = self.test_points()
+            self.test_x = [self.test_points()]
         self.test_y = self.soln(self.test_x) if self.soln else None
         if self.auxiliary_var_fn is not None:
             self.test_aux_vars = self.auxiliary_var_fn(self.test_x).astype(
@@ -290,7 +290,7 @@ class PDE(Data):
         X = np.empty((0, self.geom.dim), dtype=config.real(np))
         if self.num_domain > 0:
             if self.is_SPINN:
-                X = self.geom.uniform_spinn_points(self.num_test, boundary=False)
+                X = self.geom.uniform_spinn_points(self.num_domain, boundary=False)
             else:
                 if self.train_distribution == "uniform":
                     X = self.geom.uniform_points(self.num_domain, boundary=False)
@@ -322,7 +322,7 @@ class PDE(Data):
         x_bcs = [bc.collocation_points(self.train_x_all) for bc in self.bcs]
         self.num_bcs = list(map(len, x_bcs))
         if self.is_SPINN:
-            self.train_x_bc = x_bcs if x_bcs else np.empty([0, self.train_x_all.shape[-1]], dtype=config.real(np))
+            self.train_x_bc = x_bcs if x_bcs else []#np.empty([0, np.prod([len(self.train_x_all[i]) for i in range(len(self.train_x_all))])], dtype=config.real(np))
         else:
             self.train_x_bc = (
                 np.vstack(x_bcs)
@@ -335,8 +335,8 @@ class PDE(Data):
         # TODO: Use different BC points from self.train_x_bc
         if self.is_SPINN:
             x = self.geom.uniform_spinn_points(self.num_test, boundary=False)
-            if len(self.train_x_bc) > 0:
-                x = self.train_x_bc + [x]
+            # if len(self.train_x_bc) > 0:
+            #     x = self.train_x_bc + [x]
         else:
             x = self.geom.uniform_points(self.num_test, boundary=False)
             x = np.vstack((self.train_x_bc, x))
