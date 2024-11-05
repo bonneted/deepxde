@@ -183,7 +183,7 @@ class PointSetBC:
     """
 
     def __init__(self, points, values, component=0, batch_size=None, shuffle=True):
-        self.points = np.array(points, dtype=config.real(np))
+        self.points = points #modified to handle list of arrays for SPINN
         self.values = bkd.as_tensor(values, dtype=config.real(bkd.lib))
         self.component = component
         if isinstance(component, list) and backend_name != "pytorch":
@@ -251,7 +251,7 @@ class PointSetOperatorBC:
     """
 
     def __init__(self, points, values, func):
-        self.points = np.array(points, dtype=config.real(np))
+        self.points = points#modified to handle list of arrays for SPINN
         if not isinstance(values, numbers.Number) and values.shape[1] != 1:
             raise RuntimeError("PointSetOperatorBC should output 1D values")
         self.values = bkd.as_tensor(values, dtype=config.real(bkd.lib))
