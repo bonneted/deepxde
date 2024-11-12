@@ -185,7 +185,7 @@ class PDE(Data):
         for i, bc in enumerate(self.bcs):
             if isinstance(inputs, (list, tuple)):
                 beg, end = bcs_start[i], bcs_start[i + 1]
-                error = bc.error(self.train_x, inputs[i], outputs[beg:end,:], 0, end-beg)
+                error = bc.error(self.train_x, inputs[i], (outputs[beg:end,:], aux[0]), 0, end-beg) # adding aux[0] to be able to compute gradients with JAX
             else:
                 beg, end = bcs_start[i], bcs_start[i + 1]
                 # The same BC points are used for training and testing.
