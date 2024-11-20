@@ -891,8 +891,8 @@ class Model:
         """
         if isinstance(x, tuple):
             x = tuple(np.asarray(xi, dtype=config.real(np)) for xi in x)
-        else:
-            x = np.asarray(x, dtype=config.real(np))
+        elif not self.data.is_SPINN: #--> allowing list inputs for spinn
+            x = np.asarray(x, dtype=config.real(np)) 
         callbacks = CallbackList(callbacks=callbacks)
         callbacks.set_model(self)
         callbacks.on_predict_begin()
