@@ -313,8 +313,7 @@ class PDE(Data):
     @run_if_all_none("train_x_bc")
     def bc_points(self):
         x_bcs = [bc.collocation_points(self.train_x_all) for bc in self.bcs]
-        calc_num_bcs = lambda x:np.prod([len(xi) for xi in x]) if self.is_SPINN else len
-        self.num_bcs = list(map(calc_num_bcs, x_bcs))
+calc_num_bcs = (lambda x: np.prod([len(xi) for xi in x])) if self.is_SPINN else (len)        self.num_bcs = list(map(calc_num_bcs, x_bcs))
         if self.is_SPINN:
             self.train_x_bc = x_bcs if x_bcs else []#np.empty([0, np.prod([len(self.train_x_all[i]) for i in range(len(self.train_x_all))])], dtype=config.real(np))
         else:
