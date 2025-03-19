@@ -37,7 +37,7 @@ class SPINN(NN):
     def __call__(self, inputs, training=False):
 
         if self._input_transform is not None:
-            x = self._input_transform(x)
+            inputs = self._input_transform(inputs)
         if isinstance(inputs, (list, tuple)):
             list_inputs = inputs
         else:
