@@ -189,7 +189,7 @@ class PDE(Data):
             else:
                 beg, end = bcs_start[i], bcs_start[i + 1]
                 # The same BC points are used for training and testing.
-                error = bc.error(self.train_x, inputs, outputs, beg, end)
+                error = bc.error(self.train_x, inputs, (outputs,aux[0]), beg, end) # adding aux[0] to be able to compute gradients with JAX
             losses.append(loss_fn[len(error_f) + i](bkd.zeros_like(error), error))
         return losses
 
