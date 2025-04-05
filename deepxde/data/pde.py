@@ -121,6 +121,7 @@ class PDE(Data):
 
         self.auxiliary_var_fn = auxiliary_var_function
         self.is_SPINN = is_SPINN
+        self.xi_idx = None
 
         # TODO: train_x_all is used for PDE losses. It is better to add train_x_pde
         # explicitly.

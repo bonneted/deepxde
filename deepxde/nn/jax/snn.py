@@ -110,6 +110,9 @@ class SPINN(NN):
         xy: intermediate tensor for feature merge btw. x and y axis
         pred: final model prediction (e.g. for 2d output, pred=[u, v])
         '''
+        flat_inputs = inputs[0].ndim == 1
+        if flat_inputs:
+            inputs = [inputs_elem.reshape(-1, 1) for inputs_elem in inputs]
         [x, y, z] =  inputs
         if self.pos_enc != 0:
             # positional encoding only to spatial coordinates
@@ -150,10 +153,9 @@ class SPINN(NN):
 
         if len(pred) == 1:
             # 1-dimensional output
-            return pred[0]
+            return pred[0].reshape(-1) if flat_inputs else pred[0].reshape(-1, 1)
         else:
-            # n-dimensional output
-            return jnp.stack(pred, axis=1)
+            return jnp.stack(pred, axis=-1).reshape(-1) if flat_inputs else jnp.stack(pred, axis=-1) 
 
     def SPINN4d(self, inputs):
         outputs, tx, txy, pred = [], [], [], []
