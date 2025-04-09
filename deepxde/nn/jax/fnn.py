@@ -16,6 +16,7 @@ class FNN(NN):
     activation: Any
     kernel_initializer: Any
     bias_free: bool = False  # If True, create bias-free dense layers.
+    regularization: Any = None
 
     params: Any = None
     _input_transform: Callable = None
@@ -82,6 +83,7 @@ class PFNN(NN):
     layer_sizes: Any
     activation: Any
     kernel_initializer: Any
+    regularization: Any = None
 
     params: Any = None
     _input_transform: Callable = None
@@ -191,6 +193,7 @@ class MixNN(NN):
     # The list of networks should be passed during initialization.
     # Flax will automatically assign it as an attribute.
     networks: Sequence[Union[FNN, PFNN]]
+    regularization: Any = None
     _input_transform: Callable = None
     _output_transform: Callable = None
 
