@@ -559,7 +559,14 @@ class Model:
             outs = outputs_losses(self.params, inputs, targets)
         elif backend_name == "paddle":
             outs = outputs_losses(inputs, targets, auxiliary_vars)
-        return utils.to_numpy(outs[0]), utils.to_numpy(outs[1])
+        def convert(x):
+            if isinstance(x, (list, tuple)):
+                return [utils.to_numpy(item) for item in x]
+            else:
+                return utils.to_numpy(x)
+        outs_np = convert(outs[0])
+        loss_np = convert(outs[1])
+        return outs_np, loss_np
 
     def _train_step(self, inputs, targets, auxiliary_vars):
         if backend_name == "tensorflow.compat.v1":

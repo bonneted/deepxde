@@ -1,4 +1,4 @@
-from typing import Any, Callable
+from typing import Any, Callable, List, Sequence, Union
 
 import jax
 import jax.numpy as jnp
@@ -15,6 +15,7 @@ class FNN(NN):
     layer_sizes: Any
     activation: Any
     kernel_initializer: Any
+    bias_free: bool = False  # If True, create bias-free dense layers.
 
     params: Any = None
     _input_transform: Callable = None
@@ -31,13 +32,16 @@ class FNN(NN):
         else:
             self._activation = activations.get(self.activation)
         kernel_initializer = initializers.get(self.kernel_initializer)
-        initializer = jax.nn.initializers.zeros
+
+        # Choose the bias initializer only if biases are used.
+        bias_initializer = None if self.bias_free else jax.nn.initializers.zeros
 
         self.denses = [
             nn.Dense(
                 unit,
                 kernel_init=kernel_initializer,
-                bias_init=initializer,
+                bias_init=bias_initializer,
+                use_bias=not self.bias_free,
             )
             for unit in self.layer_sizes[1:]
         ]
@@ -175,3 +179,83 @@ class PFNN(NN):
         if self._output_transform is not None:
             x = self._output_transform(inputs, x)
         return x
+    
+class MixNN(NN):
+    """
+    A neural network container that applies a list of different neural networks
+    (e.g., FNN or PFNN instances) to a corresponding list of inputs.
+
+    Each network in the provided list is applied to the corresponding item
+    in the input list during the forward pass.
+    """
+    # The list of networks should be passed during initialization.
+    # Flax will automatically assign it as an attribute.
+    networks: Sequence[Union[FNN, PFNN]]
+    _input_transform: Callable = None
+    _output_transform: Callable = None
+
+    def setup(self):
+        """
+        Validates the provided networks list.
+
+        In Flax, `setup` is primarily for *creating* submodules based on configuration
+        passed at initialization (like layer_sizes). Here, the submodules (networks)
+        are *already created* and passed in directly. So, setup primarily serves
+        as a validation step.
+        """
+        if not isinstance(self.networks, (list, tuple)):
+             raise TypeError(f"Expected 'networks' to be a list or tuple, but got {type(self.networks)}")
+        if not self.networks:
+            raise ValueError("'networks' list cannot be empty.")
+        for i, net in enumerate(self.networks):
+            if not isinstance(net, (FNN, PFNN)):
+                # You might want to make this check more robust depending on
+                # the exact base class or expected types.
+                raise TypeError(
+                    f"Network at index {i} is not an instance of FNN or PFNN. "
+                    f"Got type: {type(net)}"
+                )
+        # No new layers need to be created *within* MixNN itself.
+
+    def __call__(self, inputs: List[Any], training: bool = False) -> List[Any]:
+        """
+        Applies each network to its corresponding input.
+
+        Args:
+            inputs: A list of input tensors/arrays. The length of this list
+                    must match the number of networks provided during initialization.
+                    Each element `inputs[i]` is passed to `self.networks[i]`.
+            training: A boolean indicating if the model is in training mode. This
+                      flag is passed down to the individual networks.
+
+        Returns:
+            A list of outputs, where each element `outputs[i]` is the result of
+            applying `self.networks[i]` to `inputs[i]`.
+        """
+        if not isinstance(inputs, (list, tuple)):
+            raise TypeError(f"Inputs to MixNN must be a list or tuple, got {type(inputs)}.")
+        if len(inputs) != len(self.networks):
+            raise ValueError(
+                f"Number of inputs ({len(inputs)}) must match the number of "
+                f"networks ({len(self.networks)})."
+            )
+
+        # 1. Apply MixNN's global input transform (operates on the list)
+        current_inputs = self._input_transform(inputs) if self._input_transform is not None else inputs
+
+        if len(current_inputs) != len(self.networks):
+             raise ValueError(f"MixNN input_transform must return a list of the same length ({len(self.networks)}). Got {len(current_inputs)}")
+
+
+        outputs = []
+        # 2. Iterate through networks and apply them to corresponding processed inputs
+        for i, net in enumerate(self.networks):
+            # The network 'net' will apply its *own* internal input/output transforms
+            # using current_inputs[i] as its starting point.
+            output = net(current_inputs[i], training=training)
+            outputs.append(output)
+
+        # 3. Apply MixNN's global output transform (operates on the list)
+        final_outputs = self._output_transform(inputs, outputs) if self._output_transform is not None else outputs
+
+        return final_outputs

@@ -239,7 +239,7 @@ def list_handler(func):
         inputs = args[-1]
         if isinstance(inputs, (list, tuple)):
             results = [func(*args[:-1], input_item, **kwargs) for input_item in inputs]
-            return bkd.concat(results, axis=0)
+            return results #bkd.concat(results, axis=0)
         return func(*args)
 
     return wrapper
