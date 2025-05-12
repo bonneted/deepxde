@@ -92,3 +92,70 @@ class PointCloud(Geometry):
         x = np.tile(self.boundary_points, (n // self.num_boundary_points, 1))
         indices = self.boundary_sampler.get_next(n % self.num_boundary_points)
         return np.vstack((x, self.boundary_points[indices]))
+
+class ListPointCLoud(Geometry):
+    def __init__(self, points, boundary_points=None, boundary_normals=None):
+        self.points = points
+        self.num_points = np.prod([len(point) for point in points])
+        all_points = self.points[0]
+        super().__init__(
+            len(points[0]),
+            (np.amin(all_points, axis=0), np.amax(all_points, axis=0)),
+            np.inf,
+        )
+        self.sampler = BatchSampler(self.num_points, shuffle=True)
+
+
+    def uniform_points(self, n, boundary=True):
+        return self.points
+    
+
+    def inside(self, x):
+        return (
+            isclose((x[:, None, :] - self.points[None, :, :]), 0)
+            .all(axis=2)
+            .any(axis=1)
+        )
+
+    def on_boundary(self, x):
+        if self.boundary_points is None:
+            raise ValueError("boundary_points must be defined to test on_boundary")
+        return (
+            isclose(
+                (x[:, None, :] - self.boundary_points[None, :, :]),
+                0,
+            )
+            .all(axis=2)
+            .any(axis=1)
+        )
+
+    def boundary_normal(self, x):
+        if self.boundary_normals is None:
+            raise ValueError(
+                "boundary_normals must be defined for boundary_normal"
+            )
+        boundary_point_matches = isclose(
+            (self.boundary_points[:, None, :] - x[None, :, :]), 0
+        ).all(axis=2)
+        normals_idx = np.where(boundary_point_matches)[0]
+        return self.boundary_normals[normals_idx, :]
+    
+    def random_points(self, n, random="pseudo"):
+        if n <= self.num_points:
+            indices = self.sampler.get_next(n)
+            return self.points[indices]
+
+        x = np.tile(self.points, (n // self.num_points, 1))
+        indices = self.sampler.get_next(n % self.num_points)
+        return np.vstack((x, self.points[indices]))
+
+    def random_boundary_points(self, n, random="pseudo"):
+        if self.boundary_points is None:
+            raise ValueError("boundary_points must be defined to test on_boundary")
+        if n <= self.num_boundary_points:
+            indices = self.boundary_sampler.get_next(n)
+            return self.boundary_points[indices]
+
+        x = np.tile(self.boundary_points, (n // self.num_boundary_points, 1))
+        indices = self.boundary_sampler.get_next(n % self.num_boundary_points)
+        return np.vstack((x, self.boundary_points[indices]))

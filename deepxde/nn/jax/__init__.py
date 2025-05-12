@@ -3,5 +3,5 @@
 __all__ = ["FNN", "NN", "PFNN", "SPINN"]
 
 from .snn import SPINN
-from .fnn import FNN, PFNN
+from .fnn import FNN, PFNN, MixNN
 from .nn import NN
