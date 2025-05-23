@@ -93,7 +93,7 @@ class PointCloud(Geometry):
         indices = self.boundary_sampler.get_next(n % self.num_boundary_points)
         return np.vstack((x, self.boundary_points[indices]))
 
-class ListPointCLoud(Geometry):
+class ListPointCloud(Geometry):
     def __init__(self, points, boundary_points=None, boundary_normals=None):
         self.points = points
         self.num_points = np.prod([len(point) for point in points])
