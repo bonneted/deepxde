@@ -94,21 +94,25 @@ class PointCloud(Geometry):
         return np.vstack((x, self.boundary_points[indices]))
 
 class ListPointCloud(Geometry):
-    def __init__(self, points, boundary_points=None, boundary_normals=None):
+    """A geometry represented by a list of point clouds, i.e., a set of points in space.
+
+    Args:
+        PointClouds: A list of PointCloud objects.
+    """
+
+    def __init__(self, points):
         self.points = points
-        self.num_points = np.prod([len(point) for point in points])
-        all_points = self.points[0]
+        self.num_points = sum([len(pc) for pc in points])
+        self.num_boundary_points = 0
+        self.sampler = BatchSampler(self.num_points, shuffle=True)
+        self.boundary_sampler = BatchSampler(self.num_boundary_points, shuffle=True)
+
         super().__init__(
             len(points[0]),
-            (np.amin(all_points, axis=0), np.amax(all_points, axis=0)),
+            (np.amin(points[0], axis=0), np.amax(points[0], axis=0)),
             np.inf,
         )
         self.sampler = BatchSampler(self.num_points, shuffle=True)
-
-
-    def uniform_points(self, n, boundary=True):
-        return self.points
-    
 
     def inside(self, x):
         return (
@@ -159,3 +163,9 @@ class ListPointCloud(Geometry):
         x = np.tile(self.boundary_points, (n // self.num_boundary_points, 1))
         indices = self.boundary_sampler.get_next(n % self.num_boundary_points)
         return np.vstack((x, self.boundary_points[indices]))
+    
+    def uniform_points(self, n, boundary = False):
+        return self.points
+    
+    def uniform_spinn_points(self, n, boundary = False):
+        return self.points

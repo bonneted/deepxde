@@ -243,3 +243,17 @@ def list_handler(func):
         return func(*args)
 
     return wrapper
+
+def list_handler(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        inputs = args[-1]
+
+        def apply_and_concat(item):
+            if isinstance(item, (list, tuple)) and all(isinstance(subitem, (list, tuple)) for subitem in item):
+                return bkd.concat([apply_and_concat(subitem) for subitem in item], axis=0)
+            return func(*args[:-1], item, **kwargs)
+
+        return apply_and_concat(inputs)
+
+    return wrapper
