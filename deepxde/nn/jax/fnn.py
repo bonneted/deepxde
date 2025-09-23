@@ -22,7 +22,7 @@ class FNN(NN):
 
     def setup(self):
         # TODO: implement get regularizer
-        if isinstance(self.activation, list):
+        if isinstance(self.activation, (list, tuple)):
             if not (len(self.layer_sizes) - 1) == len(self.activation):
                 raise ValueError(
                     "Total number of activation functions do not match with sum of hidden layers and output layer!"
@@ -49,7 +49,7 @@ class FNN(NN):
         for j, linear in enumerate(self.denses[:-1]):
             x = (
                 self._activation[j](linear(x))
-                if isinstance(self._activation, list)
+                if isinstance(self._activation, (list, tuple))
                 else self._activation(linear(x))
             )
         x = self.denses[-1](x)
@@ -176,7 +176,7 @@ class PFNN(NN):
             x = self._output_transform(inputs, x)
         return x
 
-class MixNN(nn.Module):
+class MixNN(NN):
     """
     A neural network container that applies a list of different neural networks
     (e.g., FNN or PFNN instances) to a corresponding list of inputs.
@@ -187,6 +187,7 @@ class MixNN(nn.Module):
     # The list of networks should be passed during initialization.
     # Flax will automatically assign it as an attribute.
     networks: Sequence[Union[FNN, PFNN]]
+    _output_transform: Callable = None
 
     def setup(self):
         """
@@ -243,4 +244,7 @@ class MixNN(nn.Module):
             output = net(inputs[i], training=training)
             outputs.append(output)
 
+        if self._output_transform is not None:
+            outputs = self._output_transform(inputs, outputs)
+    
         return outputs
