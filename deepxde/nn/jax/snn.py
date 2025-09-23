@@ -35,18 +35,22 @@ class SPINN(NN):
 
     @nn.compact
     def __call__(self, inputs, training=False):
-
+        flat_inputs = inputs[0].ndim == 0
+        if flat_inputs:
+            inputs = [inputs_elem.reshape(-1, 1) for inputs_elem in inputs]
         if self._input_transform is not None:
-            inputs = self._input_transform(inputs)
-        if isinstance(inputs, (list, tuple)):
-            list_inputs = inputs
+            inputs_features = self._input_transform(inputs)
+        else:
+            inputs_features = inputs
+        if isinstance(inputs_features, (list, tuple)):
+            list_inputs = inputs_features
         else:
             list_inputs = []
             for i in range(self.in_dim):
                 if inputs.ndim == 1:
-                    list_inputs.append(inputs[i:i+1])
+                    list_inputs.append(inputs_features[i:i+1])
                 else:
-                    list_inputs.append(inputs[:, i:i+1])
+                    list_inputs.append(inputs_features[:, i:i+1])
 
         if self.in_dim == 1:
             raise ValueError("Input dimension must be greater than 1")
@@ -62,13 +66,14 @@ class SPINN(NN):
         if self._output_transform is not None:
             outputs = self._output_transform(inputs, outputs)
 
-        return outputs
+        return outputs.reshape(-1) if flat_inputs else outputs
 
     def SPINN2d(self, inputs):
         # inputs = [x, y]
         flat_inputs = inputs[0].ndim == 1
         if flat_inputs:
             inputs = [inputs_elem.reshape(-1, 1) for inputs_elem in inputs]
+        
         outputs, pred = [], []
         if self.mlp == 'mlp':
             for X in inputs:
