@@ -264,7 +264,7 @@ class PDE(Data):
 
     def replace_with_anchors(self, anchors):
         """Replace the current PDE training points with anchors. The BC points will not be changed."""
-        self.anchors = anchors.astype(config.real(np))
+        self.anchors = anchors#.astype(config.real(np)) --> allow list anchors for spinn
         self.train_x_all = self.anchors
         self.train_x = self.bc_points()
         if self.pde is not None:
