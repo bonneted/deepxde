@@ -268,8 +268,11 @@ class PDE(Data):
         self.train_x_all = self.anchors
         self.train_x = self.bc_points()
         if self.pde is not None:
-            if self.is_SPINN and len(self.train_x) > 0:
-                self.train_x = self.train_x + [self.train_x_all]
+            if self.is_SPINN:
+                if len(self.train_x) > 0:
+                    self.train_x = self.train_x + [self.train_x_all]
+                else:
+                    self.train_x = [self.train_x_all]
             else:
                 self.train_x = np.vstack((self.train_x, self.train_x_all))
 
