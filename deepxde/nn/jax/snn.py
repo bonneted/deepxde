@@ -31,7 +31,14 @@ class SPINN(NN):
         self.out_dim = self.layer_sizes[-1]  # output dimension
         self.init = initializers.get(self.kernel_initializer)
         self.features = self.layer_sizes[1:-2]
-
+        if isinstance(self.activation, (list, tuple)):
+            if not (len(self.layer_sizes) - 1) == len(self.activation):
+                raise ValueError(
+                    "Total number of activation functions do not match with sum of hidden layers and output layer!"
+                )
+            self._activation = list(map(activations.get, self.activation))
+        else:
+            self._activation = list([activations.get(self.activation)] * (len(self.layer_sizes) - 1))
 
     @nn.compact
     def __call__(self, inputs, training=False):
@@ -77,9 +84,9 @@ class SPINN(NN):
         outputs, pred = [], []
         if self.mlp == 'mlp':
             for X in inputs:
-                for fs in self.features:
+                for i,fs in enumerate(self.features):
                     X = nn.Dense(fs, kernel_init=self.init)(X)
-                    X = nn.activation.tanh(X)
+                    X = self._activation[i](X)
                 X = nn.Dense(self.r*self.out_dim, kernel_init=self.init)(X)
                 outputs += [X]
         else:
