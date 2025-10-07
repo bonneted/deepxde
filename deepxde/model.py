@@ -393,7 +393,7 @@ class Model:
         def outputs(params, training, inputs):
             return self.net.apply(params, inputs, training=training)
 
-        def outputs_losses(params, training, inputs, targets, losses_fn):
+        def outputs_losses(params, training, inputs, targets, losses_fn, auxiliary_vars):
             nn_params, ext_params = params
 
             # TODO: Add auxiliary vars
@@ -404,6 +404,9 @@ class Model:
             # Data losses
             # We use aux so that self.data.losses is a pure function.
             aux = [outputs_fn, ext_params] if ext_params else [outputs_fn]
+
+            if auxiliary_vars is not None:
+                aux += [auxiliary_vars]
             losses = losses_fn(targets, outputs_, loss_fn, inputs, self, aux=aux)
             # TODO: Add regularization loss
             if not isinstance(losses, list):
@@ -414,17 +417,17 @@ class Model:
             return outputs_, losses
 
         @jax.jit
-        def outputs_losses_train(params, inputs, targets):
-            return outputs_losses(params, True, inputs, targets, self.data.losses_train)
+        def outputs_losses_train(params, inputs, targets, auxiliary_vars):
+            return outputs_losses(params, True, inputs, targets, self.data.losses_train, auxiliary_vars)
 
         @jax.jit
-        def outputs_losses_test(params, inputs, targets):
-            return outputs_losses(params, False, inputs, targets, self.data.losses_test)
+        def outputs_losses_test(params, inputs, targets, auxiliary_vars):
+            return outputs_losses(params, False, inputs, targets, self.data.losses_test, auxiliary_vars)
 
         @jax.jit
-        def train_step(params, opt_state, inputs, targets):
+        def train_step(params, opt_state, inputs, targets, auxiliary_vars):
             def loss_function(params):
-                return jax.numpy.sum(outputs_losses_train(params, inputs, targets)[1])
+                return jax.numpy.sum(outputs_losses_train(params, inputs, targets, auxiliary_vars)[1])
 
             grad_fn = jax.grad(loss_function)
             grads = grad_fn(params)
@@ -555,8 +558,7 @@ class Model:
             outs = outputs_losses(inputs, targets, auxiliary_vars)
             self.net.requires_grad_()
         elif backend_name == "jax":
-            # TODO: auxiliary_vars
-            outs = outputs_losses(self.params, inputs, targets)
+            outs = outputs_losses(self.params, inputs, targets, auxiliary_vars)
         elif backend_name == "paddle":
             outs = outputs_losses(inputs, targets, auxiliary_vars)
         return utils.to_numpy(outs[0]), utils.to_numpy(outs[1])
@@ -570,9 +572,8 @@ class Model:
         elif backend_name == "pytorch":
             self.train_step(inputs, targets, auxiliary_vars)
         elif backend_name == "jax":
-            # TODO: auxiliary_vars
             self.params, self.opt_state = self.train_step(
-                self.params, self.opt_state, inputs, targets
+                self.params, self.opt_state, inputs, targets, auxiliary_vars
             )
             self.net.params, external_trainable_variables = self.params
             for i, var in enumerate(self.external_trainable_variables):
@@ -1158,12 +1159,12 @@ class TrainState:
     def set_data_train(self, X_train, y_train, train_aux_vars=None):
         self.X_train = X_train
         self.y_train = y_train
-        self.train_aux_vars = train_aux_vars
+        # self.train_aux_vars = train_aux_vars
 
     def set_data_test(self, X_test, y_test, test_aux_vars=None):
         self.X_test = X_test
         self.y_test = y_test
-        self.test_aux_vars = test_aux_vars
+        # self.test_aux_vars = test_aux_vars
 
     def update_best(self):
         if self.best_loss_train > np.sum(self.loss_train):
