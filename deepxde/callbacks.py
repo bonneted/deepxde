@@ -367,7 +367,63 @@ class VariableValue(Callback):
         """Return the variable values."""
         return self.value
 
+class VariableArray(Callback):
+    """Get the variable values.
 
+    Args:
+        var_list: A `TensorFlow Variable <https://www.tensorflow.org/api_docs/python/tf/Variable>`_
+            or a list of TensorFlow Variable.
+        period (int): Interval (number of epochs) between checking values.
+        filename (string): Output the values to the file `filename`.
+            The file is kept open to allow instances to be re-used.
+            If ``None``, output to the screen.
+        precision (int): The precision of variables to display.
+    """
+
+    def __init__(self, var_list, array_position=0, period=1, filename=None, precision=2):
+        super().__init__()
+        self.var_list = var_list if isinstance(var_list, list) else [var_list]
+        self.array_position = array_position
+        self.period = period
+        self.precision = precision
+
+        self.file = sys.stdout if filename is None else open(filename, "w", buffering=1)
+        self.value = None
+        self.epochs_since_last = 0
+
+    def on_train_begin(self):
+        if backend_name == "tensorflow.compat.v1":
+            self.value = self.model.sess.run(self.var_list)
+        elif backend_name == "tensorflow":
+            self.value =  utils.to_numpy(self.var_list[self.array_position].numpy())
+        elif backend_name in ["pytorch", "paddle"]:
+            self.value =  utils.to_numpy(self.var_list[self.array_position].detach().item())
+        elif backend_name == "jax":
+            self.value =  utils.to_numpy(self.var_list[self.array_position].value)
+            # self.value =  utils.to_numpy(self.model.external_trainable_variables[self.array_position].value)
+
+
+        print(
+            self.model.train_state.epoch,
+            utils.list_to_str(self.value.flatten().tolist(), precision=self.precision),
+            file=self.file,
+        )
+        self.file.flush()
+
+    def on_epoch_end(self):
+        self.epochs_since_last += 1
+        if self.epochs_since_last >= self.period:
+            self.epochs_since_last = 0
+            self.on_train_begin()
+
+    def on_train_end(self):
+        if not self.epochs_since_last == 0:
+            self.on_train_begin()
+
+    def get_value(self):
+        """Return the variable values."""
+        return self.value
+    
 class OperatorPredictor(Callback):
     """Generates operator values for the input samples.
 
