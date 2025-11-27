@@ -105,6 +105,13 @@ class Model:
                       <https://www.paddlepaddle.org.cn/documentation/docs/en/develop/api/paddle/optimizer/lr/InverseTimeDecay_en.html>`_:
                       ("inverse time", gamma)
 
+                - For backend JAX:
+
+                    - `inverse_time_decay <https://optax.readthedocs.io/en/latest/api/schedules.html#optax.inverse_time_decay>`_: ("inverse time", decay_rate, transition_begin, staircase)
+                    - `exponential_decay <https://optax.readthedocs.io/en/latest/api/schedules.html#optax.exponential_decay>`_: ("exponential", transition_steps, decay_rate, staircase)
+                    - `cosine_decay_schedule <https://optax.readthedocs.io/en/latest/api/schedules.html#optax.cosine_decay_schedule>`_: ("cosine", decay_steps)
+                    - `warmup_cosine_decay_schedule <https://optax.readthedocs.io/en/latest/api/schedules.html#optax.warmup_cosine_decay_schedule>`_: ("warmup cosine", peak_value, warmup_steps, decay_steps, end_value)
+
             loss_weights: A list specifying scalar coefficients (Python floats) to
                 weight the loss contributions. The loss value that will be minimized by
                 the model will then be the weighted sum of all individual losses,
@@ -379,13 +386,13 @@ class Model:
                 if isinstance(self.data.test()[0], (list, tuple))
                 else self.data.test()[0]
             )
-            self.net.params = self.net.init(key, X_test)
+            if self.net.params is None:
+                self.net.params = self.net.init(key, X_test)
             external_trainable_variables_arr = [
                 var.value for var in self.external_trainable_variables
             ]
             self.params = [self.net.params, external_trainable_variables_arr]
-        # TODO: learning rate decay
-        self.opt = optimizers.get(self.opt_name, learning_rate=lr)
+        self.opt = optimizers.get(self.opt_name, learning_rate=lr, decay=decay)
         self.opt_state = self.opt.init(self.params)
 
         @jax.jit
