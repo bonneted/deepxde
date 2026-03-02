@@ -233,13 +233,27 @@ def mpi_scatter_from_rank0(array, drop_last=True):
     return array_split
 
 
+# def list_handler(func):
+#     @wraps(func)
+#     def wrapper(*args, **kwargs):
+#         inputs = args[-1]
+#         if isinstance(inputs, (list, tuple)):
+#             results = [func(*args[:-1], input_item, **kwargs) for input_item in inputs]
+#             return results #bkd.concat(results, axis=0)
+#         return func(*args)
+
+#     return wrapper
+
 def list_handler(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         inputs = args[-1]
-        if isinstance(inputs, (list, tuple)):
-            results = [func(*args[:-1], input_item, **kwargs) for input_item in inputs]
-            return results #bkd.concat(results, axis=0)
-        return func(*args)
+
+        def apply_and_concat(item):
+            if isinstance(item, (list, tuple)) and all(isinstance(subitem, (list, tuple)) for subitem in item):
+                return [apply_and_concat(subitem) for subitem in item]
+            return func(*args[:-1], item, **kwargs)
+
+        return apply_and_concat(inputs)
 
     return wrapper

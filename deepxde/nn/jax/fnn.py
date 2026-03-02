@@ -24,7 +24,7 @@ class FNN(NN):
 
     def setup(self):
         # TODO: implement get regularizer
-        if isinstance(self.activation, list):
+        if isinstance(self.activation, (list, tuple)):
             if not (len(self.layer_sizes) - 1) == len(self.activation):
                 raise ValueError(
                     "Total number of activation functions do not match with sum of hidden layers and output layer!"
@@ -54,7 +54,7 @@ class FNN(NN):
         for j, linear in enumerate(self.denses[:-1]):
             x = (
                 self._activation[j](linear(x))
-                if isinstance(self._activation, list)
+                if isinstance(self._activation, (list, tuple))
                 else self._activation(linear(x))
             )
         x = self.denses[-1](x)

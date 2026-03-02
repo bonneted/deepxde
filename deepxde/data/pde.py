@@ -152,7 +152,7 @@ class PDE(Data):
                 outputs_pde = (outputs[bcs_start[-1] :], aux[0])
         elif backend_name == "jax":
             # JAX requires pure functions
-            outputs_pde = (outputs[-1], aux[0])
+            outputs_pde = (outputs[bcs_start[-1] :], aux[0])
 
         inputs_pde = inputs[-1] if isinstance(inputs, (list, tuple)) else inputs[bcs_start[-1] :]
         f = []
@@ -264,12 +264,15 @@ class PDE(Data):
 
     def replace_with_anchors(self, anchors):
         """Replace the current PDE training points with anchors. The BC points will not be changed."""
-        self.anchors = anchors.astype(config.real(np))
+        self.anchors = anchors#.astype(config.real(np)) --> allow list anchors for spinn
         self.train_x_all = self.anchors
         self.train_x = self.bc_points()
         if self.pde is not None:
-            if self.is_SPINN and len(self.train_x) > 0:
-                self.train_x = self.train_x + [self.train_x_all]
+            if self.is_SPINN:
+                if len(self.train_x) > 0:
+                    self.train_x = self.train_x + [self.train_x_all]
+                else:
+                    self.train_x = [self.train_x_all]
             else:
                 self.train_x = np.vstack((self.train_x, self.train_x_all))
 
