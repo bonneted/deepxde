@@ -19,6 +19,9 @@ __all__ = [
     "PowerSeries",
     "Quadruple",
     "QuadrupleCartesianProd",
+    "SPINNPDE",
+    "SPINNPointSetBC",
+    "SPINNPointSetOperatorBC",
     "TimeFPDE",
     "TimePDE",
     "Triple",
@@ -39,4 +42,5 @@ from .pde import PDE, TimePDE
 from .pde_operator import PDEOperator, PDEOperatorCartesianProd
 from .quadruple import Quadruple, QuadrupleCartesianProd
 from .sampler import BatchSampler
+from .spinn import SPINNPDE, SPINNPointSetBC, SPINNPointSetOperatorBC
 from .triple import Triple, TripleCartesianProd
