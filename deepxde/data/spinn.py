@@ -1,15 +1,4 @@
-"""Data class for Separable Physics-Informed Neural Networks (SPINN).
-
-Provides ``SPINNPDE`` — a Data class analogous to ``TripleCartesianProd`` in the
-DeepONet family.  Interior (PDE) collocation points and boundary-condition points
-are stored as *tuples of 1-D coordinate arrays* (one per spatial dimension).
-The SPINN network receives these tuples directly, so no changes to ``model.py``
-are required.
-
-Boundary edges of a rectangle are represented by collapsing one dimension to a
-single value, e.g. the left edge ``x = x_min`` of a 2-D domain is encoded as
-``(np.array([[0.]]), y_array)``.
-"""
+"""Data class for Separable Physics-Informed Neural Networks (SPINN)."""
 
 import numpy as np
 
@@ -19,10 +8,10 @@ from ..utils import run_if_all_none
 
 
 class SPINNPDE(Data):
-    """PDE solver using a Separable PINN.
+    """Dataset for PDE solver using a Separable PINN.
 
-    The user provides the collocation coordinates directly as a tuple of
-    1-D arrays (one per spatial dimension).
+    The collocation coordinates are provided directly as a tuple of 1-D arrays
+    (one per spatial dimension). This dataset can be used with the ``SPINN`` network.
 
     Args:
         pde_points: Tuple/list of 1-D numpy arrays ``(x1, x2, ..., xd)``
