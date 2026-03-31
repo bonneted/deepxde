@@ -173,8 +173,8 @@ net.apply_output_transform(hard_BC)
 model = dde.Model(data, net)
 model.compile("adam", lr=0.001, metrics=["l2 relative error"])
 t0 = time.time()
-losshistory, train_state = model.train(iterations=5000, display_every=1000)
+losshistory, train_state = model.train(iterations=10000, display_every=1000)
 t_elapsed = time.time() - t0
 print(
-    f"\n[{net_type.upper()}] Best L2 relative error: {train_state.best_metrics} | Training time: {t_elapsed:.2f} seconds"
+    f"\n[{net_type.upper()}] Best L2 relative error: {train_state.best_metrics[0]:<10.3e} | Training time: {t_elapsed:.2f} seconds"
 )
