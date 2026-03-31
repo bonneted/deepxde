@@ -163,7 +163,22 @@ if net_type == "spinn":
     N = 50
     pde_points = [np.linspace(0, 1, N, dtype=np.float64).reshape(-1, 1)] * 2
     data = dde.data.SPINNPDE(pde_points=pde_points, pde=pde, bcs=[], solution=func)
-    net = dde.nn.SPINN([2, 32, 32, 32, 32, 5], "tanh", "Glorot uniform")
+    # body_network: dict selects the variant ("mlp") and passes its kwargs.
+    # layer_sizes=[1,32,32, rank*out_dim]: input 1 (coordinate-wise), two
+    # hidden layers of 32, output of rank*out_dim=32*5=160.
+    rank, out_dim = 32, 5
+    net = dde.nn.SPINN(
+        body_network={
+            "mlp": {
+                "layer_sizes": [1, 32, 32, 32, rank * out_dim],
+                "activation": "tanh",
+                "kernel_initializer": "Glorot uniform",
+            }
+        },
+        in_dim=2,
+        rank=rank,
+        out_dim=out_dim,
+    )
 else:
     data = dde.data.PDE(geom, pde, [], num_domain=50**2, solution=func, num_test=10000)
     net = dde.nn.PFNN([2, [36] * 5, [36] * 5, [36] * 5, 5], "tanh", "Glorot uniform")

@@ -5,7 +5,7 @@ This code is adapted from the original SPINN paper:
 - code: https://github.com/stnamjef/SPINN
 """
 
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 import jax.numpy as jnp
 from flax import linen as nn
@@ -15,34 +15,147 @@ from .. import activations
 from .. import initializers
 
 
+# ── Body networks ────────────────────────────────────────────────────
+# Each body network operates coordinate-wise: it maps a single 1-D
+# coordinate input (N, 1) to an output (N, rank * out_dim).
+# To add a new variant, define a nn.Module subclass and register it
+# in BODY_NETWORK_DICT.
+# ─────────────────────────────────────────────────────────────────────
+
+
+class MLP(nn.Module):
+    """Standard dense MLP body network.
+
+    Args:
+        layer_sizes: ``[1, h1, ..., hK, rank * out_dim]``.
+            First element must be 1 (coordinate-wise input).
+        activation: Activation name or callable (applied to hidden layers).
+        kernel_initializer: Weight initializer name or callable.
+    """
+
+    layer_sizes: Sequence[int]
+    activation: Any = "tanh"
+    kernel_initializer: Any = "Glorot uniform"
+
+    @nn.compact
+    def __call__(self, x):
+        act = activations.get(self.activation)
+        init = initializers.get(self.kernel_initializer)
+        for fs in self.layer_sizes[1:-1]:
+            x = act(nn.Dense(fs, kernel_init=init)(x))
+        x = nn.Dense(self.layer_sizes[-1], kernel_init=init)(x)
+        return x
+
+
+class ModifiedMLP(nn.Module):
+    """Modified MLP with multiplicative gating (U/V highway).
+
+    Uses encoder gates U, V and a highway loop to improve expressiveness.
+
+    Args:
+        layer_sizes: ``[1, h1, ..., hK, rank * out_dim]``.
+        activation: Activation name or callable.
+        kernel_initializer: Weight initializer name or callable.
+    """
+
+    layer_sizes: Sequence[int]
+    activation: Any = "tanh"
+    kernel_initializer: Any = "Glorot uniform"
+
+    @nn.compact
+    def __call__(self, x):
+        act = activations.get(self.activation)
+        init = initializers.get(self.kernel_initializer)
+        hidden = self.layer_sizes[1]  # first hidden width sets the gate size
+        U = act(nn.Dense(hidden, kernel_init=init)(x))
+        V = act(nn.Dense(hidden, kernel_init=init)(x))
+        H = act(nn.Dense(hidden, kernel_init=init)(x))
+        for fs in self.layer_sizes[1:-1]:
+            Z = act(nn.Dense(fs, kernel_init=init)(H))
+            H = (jnp.ones_like(Z) - Z) * U + Z * V
+        x = nn.Dense(self.layer_sizes[-1], kernel_init=init)(H)
+        return x
+
+
+# Registry: maps string identifiers to body-network classes.
+BODY_NETWORK_DICT = {
+    "mlp": MLP,
+    "modified_mlp": ModifiedMLP,
+}
+
+
+def _get_body_network(identifier):
+    """Resolve a body-network specification into a ``nn.Module`` instance.
+
+    Args:
+        identifier: One of:
+            - ``dict``: ``{name: kwargs}`` where *name* is a key in
+              ``BODY_NETWORK_DICT`` and *kwargs* are forwarded to the
+              constructor, e.g.
+              ``{"mlp": {"layer_sizes": [1, 32, 32, 160]}}``.
+            - ``nn.Module``: a pre-built Flax module used as-is.
+
+    Returns:
+        A ``nn.Module`` instance ready to be used as a SPINN body network.
+    """
+    if isinstance(identifier, nn.Module):
+        return identifier
+
+    if isinstance(identifier, dict):
+        if len(identifier) != 1:
+            raise ValueError(
+                "body_network dict must have exactly one key (the variant name)."
+            )
+        name, kwargs = next(iter(identifier.items()))
+        if name not in BODY_NETWORK_DICT:
+            raise ValueError(
+                f"Unknown body network '{name}'. "
+                f"Available: {list(BODY_NETWORK_DICT)}"
+            )
+        return BODY_NETWORK_DICT[name](**kwargs)
+
+    raise TypeError(
+        f"Cannot interpret body_network: {identifier!r}. "
+        "Pass a dict (e.g. {{'mlp': {{...}}}}) or an nn.Module instance."
+    )
+
+
+# ── SPINN ─────────────────────────────────────────────────────────────
+
+
 class SPINN(NN):
     """Separable Physics-Informed Neural Network.
 
-    SPINN takes factorized 1D coordinate arrays as input and computes the
+    SPINN takes factorized 1-D coordinate arrays as input and computes the
     Cartesian product internally via outer products of per-axis network outputs.
 
     Input: tuple/list of arrays ``(x1, x2, ..., xd)`` where ``xi`` has shape
         ``(Ni, 1)``.
-    Output: array of shape ``(N1 * N2 * ... * Nd, d_out)``.
+    Output: array of shape ``(N1 * N2 * ... * Nd, out_dim)``.
 
     Args:
-        layer_sizes: ``[d_in, hidden1, ..., hiddenK, rank, d_out]``.
-            ``d_in`` is the number of spatial dimensions. ``rank`` is the
-            rank of the tensor decomposition. ``d_out`` is the number of
-            output components.
-        activation: Activation function name or list of names.
-        kernel_initializer: Weight initializer name.
-        mlp: Network variant — ``"mlp"`` (standard) or ``"modified_mlp"``.
+        body_network: Specification of the per-coordinate sub-network:
+            - ``dict``: ``{name: kwargs}`` selects a registered variant and
+              passes constructor kwargs.  ``layer_sizes`` must start with 1
+              (coordinate-wise) and end with ``rank * out_dim``.
+            - ``nn.Module``: a custom Flax module mapping
+              ``(N, 1) -> (N, rank * out_dim)``.
+        in_dim: Number of spatial dimensions (= length of the input
+            coordinate list, must be >= 2).
+        rank: Rank of the tensor decomposition.
+        out_dim: Number of output components.  Each body network outputs
+            ``rank * out_dim`` features; the final output is assembled by
+            slicing along the output-component axis.
 
     References:
         `Cho et al. Separable Physics-Informed Neural Networks. NeurIPS, 2023.
         <https://arxiv.org/abs/2306.15969>`_
     """
 
-    layer_sizes: Any
-    activation: Any
-    kernel_initializer: Any
-    mlp: str = "mlp"
+    body_network: Any  # dict | nn.Module
+    in_dim: int
+    rank: int
+    out_dim: int
 
     params: Any = None
     regularization: Any = None
@@ -50,27 +163,17 @@ class SPINN(NN):
     _output_transform: Callable = None
 
     def setup(self):
-        self.in_dim = self.layer_sizes[0]
-        self.r = self.layer_sizes[-2]  # rank
-        self.out_dim = self.layer_sizes[-1]
-        self.init = initializers.get(self.kernel_initializer)
-        self.features = self.layer_sizes[1:-2]
-
-        if isinstance(self.activation, (list, tuple)):
-            if len(self.layer_sizes) - 1 != len(self.activation):
-                raise ValueError(
-                    "Number of activation functions does not match "
-                    "the number of layers."
-                )
-            self._activation = list(map(activations.get, self.activation))
-        else:
-            self._activation = [activations.get(self.activation)] * (
-                len(self.layer_sizes) - 1
-            )
+        if self.in_dim < 2:
+            raise ValueError("SPINN requires in_dim >= 2.")
+        # One independent sub-network per spatial coordinate.
+        # Re-resolving per axis ensures Flax assigns independent parameters.
+        self._bodies = [
+            _get_body_network(self.body_network) for _ in range(self.in_dim)
+        ]
 
     @nn.compact
     def __call__(self, inputs, training=False):
-        # inputs: tuple/list of arrays, one per dimension
+        # inputs: list/tuple of 1-D coordinate arrays, one per dimension
         flat_inputs = inputs[0].ndim == 0
         if flat_inputs:
             inputs = [xi.reshape(-1, 1) for xi in inputs]
@@ -80,19 +183,13 @@ class SPINN(NN):
         else:
             inputs_features = inputs
 
+        # Normalize to list form
         if isinstance(inputs_features, (list, tuple)):
             list_inputs = list(inputs_features)
         else:
-            list_inputs = []
-            for i in range(self.in_dim):
-                if inputs_features.ndim == 1:
-                    list_inputs.append(inputs_features[i : i + 1])
-                else:
-                    list_inputs.append(inputs_features[:, i : i + 1])
+            raise ValueError("Inputs must be a list or tuple of 1-D coordinate arrays.")
 
-        if self.in_dim < 2:
-            raise ValueError("SPINN requires input dimension >= 2.")
-
+        # Dispatch to dimension-specific tensor product
         if self.in_dim == 2:
             outputs = self._forward_2d(list_inputs)
         elif self.in_dim == 3:
@@ -106,41 +203,29 @@ class SPINN(NN):
         return outputs.reshape(-1) if flat_inputs else outputs
 
     # ------------------------------------------------------------------
-    # Internal forward methods
+    # Internal helpers
     # ------------------------------------------------------------------
 
-    def _body_networks(self, inputs):
-        """Run each coordinate through its own sub-network."""
+    def _run_bodies(self, inputs):
+        """Run each coordinate through its own body sub-network."""
         outputs = []
-        for X in inputs:
+        for body, X in zip(self._bodies, inputs):
             if X.ndim == 1:
                 X = X.reshape(-1, 1)
-            if self.mlp == "mlp":
-                for i, fs in enumerate(self.features):
-                    X = nn.Dense(fs, kernel_init=self.init)(X)
-                    X = self._activation[i](X)
-                X = nn.Dense(self.r * self.out_dim, kernel_init=self.init)(X)
-            else:  # modified_mlp
-                U = jnp.tanh(nn.Dense(self.features[0], kernel_init=self.init)(X))
-                V = jnp.tanh(nn.Dense(self.features[0], kernel_init=self.init)(X))
-                H = jnp.tanh(nn.Dense(self.features[0], kernel_init=self.init)(X))
-                for fs in self.features:
-                    Z = nn.Dense(fs, kernel_init=self.init)(H)
-                    Z = jnp.tanh(Z)
-                    H = (jnp.ones_like(Z) - Z) * U + Z * V
-                X = nn.Dense(self.r * self.out_dim, kernel_init=self.init)(H)
-            outputs.append(X)
+            outputs.append(body(X))
         return outputs
 
     def _forward_2d(self, inputs):
         flat_inputs = inputs[0].ndim == 1
         if flat_inputs:
             inputs = [xi.reshape(-1, 1) for xi in inputs]
-        outputs = self._body_networks(inputs)
+        outputs = self._run_bodies(inputs)
+        r = self.rank
 
+        # Outer product per output component over the rank axis
         pred = []
         for i in range(self.out_dim):
-            s = slice(self.r * i, self.r * (i + 1))
+            s = slice(r * i, r * (i + 1))
             pred.append(jnp.dot(outputs[0][:, s], outputs[1][:, s].T).reshape(-1))
 
         if len(pred) == 1:
@@ -155,12 +240,13 @@ class SPINN(NN):
         flat_inputs = inputs[0].ndim == 1
         if flat_inputs:
             inputs = [xi.reshape(-1, 1) for xi in inputs]
-        outputs = self._body_networks(inputs)
+        outputs = self._run_bodies(inputs)
         outputs = [jnp.transpose(o, (1, 0)) for o in outputs]
+        r = self.rank
 
         pred = []
         for i in range(self.out_dim):
-            s = slice(self.r * i, self.r * (i + 1))
+            s = slice(r * i, r * (i + 1))
             xy = jnp.einsum("fx,fy->fxy", outputs[0][s], outputs[1][s])
             pred.append(jnp.einsum("fxy,fz->xyz", xy, outputs[2][s]).ravel())
 
@@ -174,11 +260,10 @@ class SPINN(NN):
 
     def _forward_nd(self, inputs):
         """General n-dimensional SPINN via repeated einsum."""
-        outputs = self._body_networks(inputs)
+        outputs = self._run_bodies(inputs)
         outputs = [jnp.transpose(o, (1, 0)) for o in outputs]
         dim = len(inputs)
 
-        # Build einsum chain: (z,a) x (z,b) -> (z,a,b) x (z,c) -> ...
         a, b = "za", "zb"
         c = "zab"
         pred = jnp.einsum(f"{a},{b}->{c}", outputs[0], outputs[1])
@@ -187,6 +272,6 @@ class SPINN(NN):
             b = f"z{chr(97 + i + 2)}"
             c = c + chr(97 + i + 2)
             if i == dim - 3:
-                c = c[1:]  # remove leading 'z' on last contraction
+                c = c[1:]  # drop leading 'z' on last contraction
             pred = jnp.einsum(f"{a},{b}->{c}", pred, outputs[i + 2])
         return pred.ravel().reshape(-1, 1)
