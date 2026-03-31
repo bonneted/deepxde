@@ -5,6 +5,7 @@ This code is adapted from the original SPINN paper:
 - code: https://github.com/stnamjef/SPINN
 """
 
+from collections.abc import Mapping
 from typing import Any, Callable, Sequence
 
 import jax.numpy as jnp
@@ -89,7 +90,7 @@ def _get_body_network(identifier):
 
     Args:
         identifier: One of:
-            - ``dict``: ``{name: kwargs}`` where *name* is a key in
+            - ``dict``/mapping: ``{name: kwargs}`` where *name* is a key in
               ``BODY_NETWORK_DICT`` and *kwargs* are forwarded to the
               constructor, e.g.
               ``{"mlp": {"layer_sizes": [1, 32, 32, 160]}}``.
@@ -101,7 +102,7 @@ def _get_body_network(identifier):
     if isinstance(identifier, nn.Module):
         return identifier
 
-    if isinstance(identifier, dict):
+    if isinstance(identifier, Mapping):
         if len(identifier) != 1:
             raise ValueError(
                 "body_network dict must have exactly one key (the variant name)."
@@ -112,7 +113,7 @@ def _get_body_network(identifier):
                 f"Unknown body network '{name}'. "
                 f"Available: {list(BODY_NETWORK_DICT)}"
             )
-        return BODY_NETWORK_DICT[name](**kwargs)
+        return BODY_NETWORK_DICT[name](**dict(kwargs))
 
     raise TypeError(
         f"Cannot interpret body_network: {identifier!r}. "
