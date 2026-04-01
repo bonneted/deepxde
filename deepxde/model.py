@@ -109,8 +109,9 @@ class Model:
 
                 - For backend JAX:
 
-                    - Generic format for any Optax schedule:
+                    - Generic format for Optax schedule:
                         ("schedule_name", {"kwarg": value, ...})
+                        init_value will default to `lr` if not provided in kwargs.
                     - `linear_schedule
                         <https://optax.readthedocs.io/en/latest/api/optimizer_schedules.html#optax.schedules.linear_schedule>`_:
                         ("linear", end_value, transition_steps)

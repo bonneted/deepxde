@@ -48,8 +48,7 @@ def _get_learningrate(lr, decay):
         "warmup_exponential": schedules.warmup_exponential_decay_schedule,
     }
 
-    # Preferred format for clarity and flexibility:
-    #   decay = ("schedule_name", {"kwarg": value, ...})
+    # Preferred format: decay = ("schedule_name", {"kwarg": value, ...})
     # Legacy tuple formats are still supported below.
     if isinstance(decay, tuple) and len(decay) == 2 and isinstance(decay[1], dict):
         name, kwargs = decay
@@ -78,11 +77,16 @@ def _get_learningrate(lr, decay):
             "https://optax.readthedocs.io/en/latest/api/optimizer_schedules.html"
         )
 
+    # Keep a simple default: if schedule accepts init_value, use lr unless provided.
+    if isinstance(kwargs, dict) and "init_value" not in kwargs:
+        kwargs = {"init_value": lr, **kwargs}
+
     try:
         return schedule_map[name](**kwargs)
     except KeyError as exc:
         raise NotImplementedError(
-            f"Unknown JAX decay schedule '{name}'. See "
+            f"Unknown JAX decay schedule '{name}'. Supported schedules: "
+            f"{list(schedule_map.keys())}. See "
             "https://optax.readthedocs.io/en/latest/api/optimizer_schedules.html"
         ) from exc
     except TypeError as exc:
