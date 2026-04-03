@@ -109,24 +109,24 @@ class Model:
 
                 - For backend JAX:
 
-                    - Generic format for Optax schedule:
-                        ("schedule_name", {"kwarg": value, ...})
-                        init_value will default to `lr` if not provided in kwargs.
                     - `linear_schedule
-                        <https://optax.readthedocs.io/en/latest/api/optimizer_schedules.html#optax.schedules.linear_schedule>`_:
-                        ("linear", end_value, transition_steps)
+                      <https://optax.readthedocs.io/en/latest/api/optimizer_schedules.html#optax.schedules.linear_schedule>`_:
+                      ("linear", end_value, transition_steps)
                     - `cosine_decay_schedule
-                        <https://optax.readthedocs.io/en/latest/api/optimizer_schedules.html#optax.schedules.cosine_decay_schedule>`_:
-                        ("cosine", decay_steps, alpha)
+                      <https://optax.readthedocs.io/en/latest/api/optimizer_schedules.html#optax.schedules.cosine_decay_schedule>`_:
+                      ("cosine", decay_steps, alpha)
                     - `exponential_decay
-                        <https://optax.readthedocs.io/en/latest/api/optimizer_schedules.html#optax.schedules.exponential_decay>`_:
-                        ("exponential", transition_steps, decay_rate)
+                      <https://optax.readthedocs.io/en/latest/api/optimizer_schedules.html#optax.schedules.exponential_decay>`_:
+                      ("exponential", transition_steps, decay_rate)
                     - `warmup_cosine_decay_schedule
-                        <https://optax.readthedocs.io/en/latest/api/optimizer_schedules.html#optax.schedules.warmup_cosine_decay_schedule>`_:
-                        ("warmup_cosine", {"init_value": ..., "peak_value": ..., "warmup_steps": ..., "decay_steps": ...})
+                      <https://optax.readthedocs.io/en/latest/api/optimizer_schedules.html#optax.schedules.warmup_cosine_decay_schedule>`_:
+                        ("warmup_cosine", peak_value, warmup_steps, decay_steps, end_value)
                     - `warmup_exponential_decay_schedule
-                        <https://optax.readthedocs.io/en/latest/api/optimizer_schedules.html#optax.schedules.warmup_exponential_decay_schedule>`_:
-                        ("warmup_exponential", {"init_value": ..., "peak_value": ..., "warmup_steps": ..., "transition_steps": ..., "decay_rate": ...})
+                      <https://optax.readthedocs.io/en/latest/api/optimizer_schedules.html#optax.schedules.warmup_exponential_decay_schedule>`_:
+                        ("warmup_exponential", peak_value, warmup_steps, transition_steps, decay_rate)
+
+                    Only required arguments are listed. Optional positional arguments can be provided using Optax order. 
+                    `init_value` is not in the tuple/list, since it is always taken from `lr` argument.
 
             loss_weights: A list specifying scalar coefficients (Python floats) to
                 weight the loss contributions. The loss value that will be minimized by
