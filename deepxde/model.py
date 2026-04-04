@@ -120,10 +120,10 @@ class Model:
                       ("exponential", transition_steps, decay_rate)
                     - `warmup_cosine_decay_schedule
                       <https://optax.readthedocs.io/en/latest/api/optimizer_schedules.html#optax.schedules.warmup_cosine_decay_schedule>`_:
-                        ("warmup_cosine", peak_value, warmup_steps, decay_steps, end_value)
+                      ("warmup_cosine", peak_value, warmup_steps, decay_steps, end_value)
                     - `warmup_exponential_decay_schedule
                       <https://optax.readthedocs.io/en/latest/api/optimizer_schedules.html#optax.schedules.warmup_exponential_decay_schedule>`_:
-                        ("warmup_exponential", peak_value, warmup_steps, transition_steps, decay_rate)
+                      ("warmup_exponential", peak_value, warmup_steps, transition_steps, decay_rate)
 
                     Only required arguments are listed. Optional positional arguments can be provided in Optax order. 
                     `init_value` is not in the tuple/list, since it is always supplied by the `lr` argument.
